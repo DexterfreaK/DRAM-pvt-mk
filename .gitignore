@@ -4,3 +4,5 @@ klee-last
 *.ll
 *.bc
 paths.sh
+*build/
+*.o
