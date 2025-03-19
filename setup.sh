@@ -149,6 +149,9 @@ INSTALL_KLEE_UCLIBC=
 CLEAN_KLEE=
 INSTALL_KLEE=
 
+CLEAN_BPF_LIFTER=
+INSTALL_BPF_LIFTER=
+
 ## Clean and installation routines
 
 source_install_z3()
@@ -253,6 +256,24 @@ clean_klee()
 	rm -rf build
 }
 
+source_install_bpf_lifter()
+{
+	cd "$CURRENTDIR"/bpf_lifter
+	mkdir -p build
+	cd build
+	cmake ..
+	make -j$(nproc)
+
+	# export the part to bpf_lifter binary
+	line_multi "$PATHSFILE" 'PATH' "$CURRENTDIR/bpf_lifter/build:\$PATH"
+}
+
+clean_bpf_lifter()
+{
+	cd "$CURRENTDIR"/bpf_lifter
+	rm -rf build
+}
+
 # Options
 while getopts "hp:i:c:k:" o;
 do
@@ -346,9 +367,11 @@ package_install \
 [ -n "$CLEAN_LLVM" ]        && clean_llvm
 [ -n "$CLEAN_KLEE_UCLIBC" ] && clean_klee_uclibc
 [ -n "$CLEAN_KLEE" ]        && clean_klee
+[ -N "$CLEAN_BPF_LIFTER" ]	&& clean_bpf_lifter
 
 # Install things
 { [ -n "$INSTALL_ALL" ] || [ -n "$INSTALL_Z3" ]   ; } && source_install_z3
 { [ -n "$INSTALL_ALL" ] || [ -n "$INSTALL_LLVM" ] ; } && bin_install_llvm
 { [ -n "$INSTALL_ALL" ] || [ -n "$INSTALL_KLEE_UCLIBC" ] ; } && source_install_klee_uclibc
 { [ -n "$INSTALL_ALL" ] || [ -n "$INSTALL_KLEE" ] ; } && source_install_klee_func_ver
+{ [ -n "$INSTALL_ALL" ] || [ -n "$INSTALL_BPF_LIFTER" ] ; } && source_install_bpf_lifter
