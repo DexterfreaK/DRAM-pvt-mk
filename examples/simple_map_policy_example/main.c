@@ -12,9 +12,9 @@
 #define USES_BPF_MAP_LOOKUP_ELEM
 #endif
 
-#ifndef USES_BPF_MAP_UPDATE_ELEM
-#define USES_BPF_MAP_UPDATE_ELEM
-#endif
+// #ifndef USES_BPF_MAP_UPDATE_ELEM
+// #define USES_BPF_MAP_UPDATE_ELEM
+// #endif
 
 
 #include <linux/bpf.h>
@@ -28,92 +28,117 @@ struct __attribute__((__packed__)) pkt {
   char payload[1500];
 };
 
-struct bpf_map_def SEC("maps") read_only = {
-	.type = BPF_MAP_TYPE_HASH,
-	.key_size = sizeof(int),
-	.value_size = sizeof(int),
-	.max_entries = 100,
+// struct bpf_map_def SEC("maps") read_only = {
+// 	.type = BPF_MAP_TYPE_HASH,
+// 	.key_size = sizeof(int),
+// 	.value_size = sizeof(int),
+// 	.max_entries = 100,
+// };
+
+// struct bpf_map_def SEC("maps") write_only = {
+// 	.type = BPF_MAP_TYPE_HASH,
+// 	.key_size = sizeof(int),
+// 	.value_size = sizeof(int),
+// 	.max_entries = 100,
+// };
+
+// struct bpf_map_def SEC("maps") read_write = {
+// 	.type = BPF_MAP_TYPE_HASH,
+// 	.key_size = sizeof(int),
+// 	.value_size = sizeof(int),
+// 	.max_entries = 100,
+// };
+
+// struct bpf_map_def SEC("maps") no_access = {
+// 	.type = BPF_MAP_TYPE_HASH,
+// 	.key_size = sizeof(int),
+// 	.value_size = sizeof(int),
+// 	.max_entries = 100,
+// };
+
+
+
+
+// SEC("xdp")
+// int xdp_main(struct xdp_md *ctx) {
+// 	void* data     = (void*)(long)ctx->data;
+// 	void* data_end = (void*)(long)ctx->data_end;
+// 	struct ethhdr *eth;
+// 	struct iphdr  *ip;
+// 	struct tcphdr *tcp;
+// 	// char		  *payload;
+// 	uint64_t nh_off = 0;
+
+// 	eth = data;
+// 	nh_off = sizeof(*eth);
+// 	if (data  + nh_off  > data_end)
+// 		goto EOP;
+
+// 	ip = data + nh_off;
+// 	nh_off += sizeof(*ip);
+// 	if (data + nh_off  > data_end)
+// 		goto EOP;
+
+// 	if(ip->protocol != IPPROTO_TCP){
+// 		return XDP_PASS;
+// 	}
+
+// 	tcp = data + nh_off;
+// 	nh_off += sizeof(*tcp);
+// 	if (data + nh_off  > data_end)
+// 	 	goto EOP;
+
+// 	// payload = data + nh_off;
+// 	nh_off += 3;
+// 	if (data + nh_off  > data_end)
+// 		goto EOP;
+
+// 	int key = 1;
+// 	int value = 42;
+// 	int *result;
+
+// 	// Valid map operations - read and write allowed
+// 	bpf_map_update_elem(&read_write, &key, &value, BPF_ANY);
+// 	result = bpf_map_lookup_elem(&read_write, &key);
+
+// 	// // // Invalid map operations - attempt write to read-only map
+// 	key = 2;
+// 	value = 100;
+// 	bpf_map_update_elem(&no_access, &key, &value, BPF_ANY); // This should fail verification
+	
+// 	// Valid map operations - read from read-only map
+// 	key = 1;
+// 	result = bpf_map_lookup_elem(&read_only, &key);
+// 	if (result && *result == 100) { // This should pass verification since read is allowed
+// 		return XDP_DROP;
+// 	}
+
+// 	return XDP_PASS;
+// 	EOP:
+// 		return XDP_DROP;
+// }
+
+
+
+struct bpf_map_def SEC(".maps") packet_stats = {
+	.type = BPF_MAP_TYPE_ARRAY,
+	.key_size = sizeof(__u32),
+	.value_size = sizeof(__u32),
+	.max_entries = 256,
 };
 
-struct bpf_map_def SEC("maps") write_only = {
-	.type = BPF_MAP_TYPE_HASH,
-	.key_size = sizeof(int),
-	.value_size = sizeof(int),
-	.max_entries = 100,
-};
-
-struct bpf_map_def SEC("maps") read_write = {
-	.type = BPF_MAP_TYPE_HASH,
-	.key_size = sizeof(int),
-	.value_size = sizeof(int),
-	.max_entries = 100,
-};
-
-struct bpf_map_def SEC("maps") no_access = {
-	.type = BPF_MAP_TYPE_HASH,
-	.key_size = sizeof(int),
-	.value_size = sizeof(int),
-	.max_entries = 100,
-};
-
+SEC("xdp") extern int xdp_reader(struct xdp_md *ctx);
 
 SEC("xdp")
-int xdp_main(struct xdp_md *ctx) {
-	void* data     = (void*)(long)ctx->data;
-	void* data_end = (void*)(long)ctx->data_end;
-	struct ethhdr *eth;
-	struct iphdr  *ip;
-	struct tcphdr *tcp;
-	// char		  *payload;
-	uint64_t nh_off = 0;
-
-	eth = data;
-	nh_off = sizeof(*eth);
-	if (data  + nh_off  > data_end)
-		goto EOP;
-
-	ip = data + nh_off;
-	nh_off += sizeof(*ip);
-	if (data + nh_off  > data_end)
-		goto EOP;
-
-	if(ip->protocol != IPPROTO_TCP){
-		return XDP_PASS;
-	}
-
-	tcp = data + nh_off;
-	nh_off += sizeof(*tcp);
-	if (data + nh_off  > data_end)
-	 	goto EOP;
-
-	// payload = data + nh_off;
-	nh_off += 3;
-	if (data + nh_off  > data_end)
-		goto EOP;
-
-	int key = 1;
-	int value = 42;
-	int *result;
-
-	// Valid map operations - read and write allowed
-	bpf_map_update_elem(&read_write, &key, &value, BPF_ANY);
-	result = bpf_map_lookup_elem(&read_write, &key);
-
-	// // // Invalid map operations - attempt write to read-only map
-	key = 2;
-	value = 100;
-	bpf_map_update_elem(&no_access, &key, &value, BPF_ANY); // This should fail verification
-	
-	// Valid map operations - read from read-only map
-	key = 1;
-	result = bpf_map_lookup_elem(&read_only, &key);
-	if (result && *result == 100) { // This should pass verification since read is allowed
-		return XDP_DROP;
-	}
-
-	return XDP_PASS;
-	EOP:
-		return XDP_DROP;
+int xdp_reader2(struct xdp_md *ctx)
+{
+    __u32 key = 0;
+    __u32* count = bpf_map_lookup_elem(&packet_stats, &key);
+    if (count) {
+        return XDP_DROP;
+    }
+    
+    return XDP_PASS;
 }
 
 #ifdef KLEE_VERIFICATION
@@ -121,10 +146,10 @@ int xdp_main(struct xdp_md *ctx) {
 #include <stdlib.h>
 int main() {
 	// init maps
-	BPF_MAP_INIT(&read_only, "read_only", "", "");
-	BPF_MAP_INIT(&read_write, "read_write", "", "");
-	BPF_MAP_INIT(&no_access, "no_access", "", "");
-	BPF_MAP_INIT(&write_only, "write_only", "", "");
+	BPF_MAP_INIT(&packet_stats, "packet_stats", "", "");
+	// BPF_MAP_INIT(&read_write, "read_write", "", "");
+	// BPF_MAP_INIT(&no_access, "no_access", "", "");
+	// BPF_MAP_INIT(&write_only, "write_only", "", "");
 
 	// init the ctx
 	struct pkt *pkt = malloc(sizeof(struct pkt));
@@ -137,7 +162,8 @@ int main() {
 	test.ingress_ifindex = 0;
 
 	// execute
-	xdp_main(&test);
+	int val = xdp_reader(&test);
+	printf("Return value %d\n",val);
 	return 0;
 }
 #endif

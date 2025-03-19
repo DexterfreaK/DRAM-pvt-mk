@@ -4,3 +4,6 @@
 [submodule "klee"]
 	path = klee
 	url = git@github.com:jainl28patel/klee.git
+[submodule "bpf_lifter"]
+	path = bpf_lifter
+	url = git@github.com:jainl28patel/bpf_lifter.git
