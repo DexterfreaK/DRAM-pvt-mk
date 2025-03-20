@@ -31,18 +31,18 @@ try:
     result = subprocess.run(["bpflifter_cli", f"{object_file}", f"{temp_dir}"], stdout=lifted_ir_fd)
     # optimize
     result = subprocess.run(["opt", "-O3", "-S", f"{lifted_ir_file}", "-o", f"{lifted_ir_file}"])
-except:
-    print("Error in lifting the program")
+except Exception as e:
+    print("Error in lifting the program : ", e)
     exit(1)
 
 
 ##### Step-2 get offset and relocation information form elf file
-def gen_reloc_dump(elf, dump_dir):
+def gen_reloc_dump(elf, dump_dir) -> bool:
     with open(elf, 'rb') as f:
         elffile = ELFFile(f)
         relxdp_section = elffile.get_section_by_name('.relxdp')
         if not isinstance(relxdp_section, RelocationSection):
-            raise ValueError(".relxdp section is not a relocation section")
+            return False
         symtab = elffile.get_section(relxdp_section['sh_link'])
 
         with open(os.path.join(dump_dir,"map_offset_mapping"), 'w') as dump_file:
@@ -56,16 +56,19 @@ def gen_reloc_dump(elf, dump_dir):
                 sym_name = symbol.name
 
                 dump_file.write(f"{int(offset)},{str(sym_name)}\n")
+        
+        return True
 
-gen_reloc_dump(object_file, temp_dir)
+do_relocate = gen_reloc_dump(object_file, temp_dir)
 map_offset_mapping = os.path.join(temp_dir,"map_offset_mapping")
 
 ##### Step-3 apply llvm function pass on lifter and opt IR
 func_pass_lib = os.getenv("FUNC_PASS_LIB")
 try:
-    result = subprocess.run(["opt", "-load", f"{func_pass_lib}", f"-load-pass-plugin={func_pass_lib}", f"-passes=custom-bpf-pass", '-map-config', f"{map_offset_mapping}", f"{lifted_ir_file}", '-o', f"{lifted_ir_file}"])
-except:
-    print("Error in applying function pass")
+    if do_relocate:
+        result = subprocess.run(["opt", "-load", f"{func_pass_lib}", f"-load-pass-plugin={func_pass_lib}", f"-passes=custom-bpf-pass", '-map-config', f"{map_offset_mapping}", f"{lifted_ir_file}", '-o', f"{lifted_ir_file}"])
+except Exception as e:
+    print("Error in applying function pass : ",e)
     exit(1)
 
 
@@ -113,6 +116,7 @@ def generate_config(dir):
 
 config = generate_config(temp_dir)
 gen_cpp_path = os.path.join(temp_dir, "cpp_generated_code.c")
+print(config)
 # TODO: update
 template_path = "/home/jainil/Draco/DRACO-verifier/lifting_tools"
 generate_code(config=config,template_path=template_path,output_path=gen_cpp_path)
@@ -121,8 +125,8 @@ generate_code(config=config,template_path=template_path,output_path=gen_cpp_path
 ##### Step-5 compile template
 try:
     result = subprocess.run(["make", "compile-template", f"input_file={gen_cpp_path}", f"output_file={gen_cpp_path}"])
-except:
-    print("error in compiling template")
+except Exception as e:
+    print("error in compiling template : ", e)
     exit(1)
 
 
@@ -130,8 +134,8 @@ except:
 ext_pass_lib = os.getenv("EXT_SYM_PASS_LIB")
 try:
     result = subprocess.run(["opt", f"-load-pass-plugin={ext_pass_lib}", f"-passes=int-to-ext", f"{gen_cpp_path}", '-o', f"{gen_cpp_path}"])
-except:
-    print("Error in applying function pass")
+except Exception as e:
+    print("Error in applying function pass : ", e)
     exit(1)
 
 
@@ -139,6 +143,6 @@ except:
 final_ir_path = os.path.join(os.path.dirname(object_file),"final_linked_ir.bc")
 try:
     result = subprocess.run(["llvm-link", f"{gen_cpp_path}", f"{lifted_ir_file}", "-o", f"{final_ir_path}"])
-except:
-    print("error in linking both irs")
+except Exception as e:
+    print("error in linking both irs : ", e)
     exit(1)

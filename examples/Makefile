@@ -6,6 +6,7 @@ COMMON_DIR:=$(current_dir)/../ebpf-se/examples/common
 KLEE_PATH:=$(current_dir)/../ebpf-se/tool/deps/klee
 LIBXDP_PATH:=$(current_dir)/../ebpf-se/tool/deps/libxdp
 XDP_PATH:=$(current_dir)/../ebpf-se/tool/deps/xdp
+LIFTING_TOOLS_DIR:=$(current_dir)/../lifting_tools
 
 LLVM_RELEASE=13
 LLC=llc-$(LLVM_RELEASE)
@@ -57,6 +58,7 @@ clean: clean-klee
 	rm -f *.ll *.bc
 	rm -f *~
 	rm -f replayer
+	rm -f *.o
 
 llvm-check: $(CLANG) $(LLC)
 	@for TOOL in $^ ; do \
@@ -228,6 +230,14 @@ verify-map-policy: $(XDP_C) Makefile $(KERN_USER_H) $(EXTRA_DEPS)
 		klee -kdalloc -kdalloc-heap-start-address=0x00040000000 -kdalloc-heap-size=1 -libc=uclibc --external-calls=all --disable-verify \
 		-solver-backend=z3 --exit-on-error -max-memory=750000 -search=dfs -single-object-resolution=true \
 		-verification=true -read-set=true -write-set=true -map-correlation=true -read-write-two-phase=true -map-access-control-file=$(MAP_CONFIG_PATH) $(XDP_TARGETS).bc
+
+verify-object-code: $(OBJECT_FILE_PATH)
+	$(LIFTING_TOOLS_DIR)/generateIR.py $(OBJECT_FILE_PATH)
+	llvm-dis -show-annotations final_linked_ir.bc
+	/usr/bin/time -v \
+		klee -kdalloc -kdalloc-heap-start-address=0x00040000000 -kdalloc-heap-size=1 -libc=uclibc --external-calls=all --disable-verify \
+		-solver-backend=z3 --exit-on-error -max-memory=750000 -search=dfs -single-object-resolution=true \
+		-verification=true -read-set=true -write-set=true -map-correlation=true -read-write-two-phase=true final_linked_ir.bc
 
 compile-template: $(input_file) Makefile $(KERN_USER_H) $(EXTRA_DEPS)
 	$(CLANG) \

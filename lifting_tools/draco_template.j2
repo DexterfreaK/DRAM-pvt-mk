@@ -4,12 +4,11 @@
 #include <linux/tcp.h>
 #include <netinet/in.h>
 
-
-{% if maps %}
 #ifndef USES_BPF_MAPS
 #define USES_BPF_MAPS
 #endif
 
+{% if maps %}
 {# Check for each operation type separately using flags #}
 {% set op_types = ['lookup', 'update', 'delete'] %}
 {% for op in op_types %}
