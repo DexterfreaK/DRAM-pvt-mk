@@ -229,6 +229,26 @@ verify-map-policy: $(XDP_C) Makefile $(KERN_USER_H) $(EXTRA_DEPS)
 		-solver-backend=z3 --exit-on-error -max-memory=750000 -search=dfs -single-object-resolution=true \
 		-verification=true -read-set=true -write-set=true -map-correlation=true -read-write-two-phase=true -map-access-control-file=$(MAP_CONFIG_PATH) $(XDP_TARGETS).bc
 
+compile-template: $(input_file) Makefile $(KERN_USER_H) $(EXTRA_DEPS)
+	$(CLANG) \
+		-target bpf \
+		-DKLEE_VERIFICATION\
+		-DVERIFY_INTERACTIONS\
+		$(KLEE_BPF_CFLAGS) \
+		-I $(KLEE_INCLUDE) \
+		-D__USE_VMLINUX__ \
+		-D__TARGET_ARCH_x86 \
+		-DBPF_NO_PRESERVE_ACCESS_INDEX \
+		-Wall \
+		-Wno-unused-value \
+		-Wno-unused-variable \
+		-Wno-pointer-sign \
+		-Wno-compare-distinct-pointer-types \
+		-Werror \
+		-fno-discard-value-names \
+		-fno-builtin \
+		-O0 -emit-llvm -c -g $(input_file) -o $(output_file)
+
 verify-packet-policy: $(XDP_C) Makefile $(KERN_USER_H) $(EXTRA_DEPS)
 	$(CLANG) \
 		-target bpf \

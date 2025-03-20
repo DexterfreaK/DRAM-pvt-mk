@@ -1,0 +1,95 @@
+#include <stdint.h>
+#include <linux/if_ether.h>
+#include <linux/ip.h>
+#include <linux/tcp.h>
+#include <netinet/in.h>
+
+
+{% if maps %}
+#ifndef USES_BPF_MAPS
+#define USES_BPF_MAPS
+#endif
+
+{# Check for each operation type separately using flags #}
+{% set op_types = ['lookup', 'update', 'delete'] %}
+{% for op in op_types %}
+    {% set found = namespace(value=false) %}
+    {% for map in maps %}
+        {% if op in map.ops and not found.value %}
+            {% set found.value = true %}
+        {% endif %}
+    {% endfor %}
+    {% if found.value %}
+#ifndef USES_BPF_MAP_{{ op.upper() }}_ELEM
+#define USES_BPF_MAP_{{ op.upper() }}_ELEM
+#endif
+    {% endif %}
+{% endfor %}
+{% endif %}
+
+#include <linux/bpf.h>
+#include <bpf/bpf_helpers.h>
+#include <bpf/bpf_endian.h>
+
+struct __attribute__((__packed__)) pkt {
+    struct ethhdr ether;
+    struct iphdr ipv4;
+    struct tcphdr tcp;
+    char payload[1500];
+};
+
+
+{% for map in maps %}
+struct bpf_map_def SEC(".maps") {{ map.name }} = {
+    .type = {{ map.type }},
+    .key_size = {{ map.key_size }},
+    .value_size = {{ map.value_size }},
+    .max_entries = {{ map.max_entries }},
+};
+{% endfor %}
+
+SEC("xdp") extern int {{ extern_func }}(struct xdp_md *ctx);
+
+SEC("xdp")
+int xdp_main(struct xdp_md *ctx) {
+    {% for map in maps %}
+        {% if 'lookup' in map.ops %}
+    __u32 {{ map.name }}_key = 0;
+    void* {{ map.name }}_val = bpf_map_lookup_elem(&{{ map.name }}, &{{ map.name }}_key);
+        {% endif %}
+        {% if 'update' in map.ops %}
+    __u32 {{ map.name }}_update_key = 0;
+    __u32 {{ map.name }}_update_val = 1;
+    bpf_map_update_elem(&{{ map.name }}, &{{ map.name }}_update_key, &{{ map.name }}_update_val, 0);
+        {% endif %}
+        {% if 'delete' in map.ops %}
+    __u32 {{ map.name }}_delete_key = 0;
+    bpf_map_delete_elem(&{{ map.name }}, &{{ map.name }}_delete_key);
+        {% endif %}
+    {% endfor %}
+    return XDP_PASS;
+}
+
+#ifdef KLEE_VERIFICATION
+#include "klee/klee.h"
+#include <stdlib.h>
+int main() {
+    {% for map in maps %}
+    BPF_MAP_INIT(&{{ map.name }}, "{{ map.name }}", "", "");
+    {% endfor %}
+    
+    // Context initialization
+    struct pkt *pkt = malloc(sizeof(struct pkt));
+    klee_make_symbolic(pkt, sizeof(struct pkt), "user_pkt");
+    struct xdp_md test = {
+        .data = (long)(&(pkt->ether)),
+        .data_end = (long)(pkt + 1),
+        .data_meta = 0,
+        .ingress_ifindex = 0
+    };
+    
+    // Execute program
+    int val = {{ extern_func }}(&test);
+    return 0;
+}
+#endif

@@ -152,6 +152,9 @@ INSTALL_KLEE=
 CLEAN_BPF_LIFTER=
 INSTALL_BPF_LIFTER=
 
+CLEAN_LLVM_PASS=
+INSTALL_LLVM_PASS=
+
 ## Clean and installation routines
 
 source_install_z3()
@@ -274,6 +277,32 @@ clean_bpf_lifter()
 	rm -rf build
 }
 
+source_build_llvm_pass()
+{
+	cd "$CURRENTDIR"/lifting_tools/llvm_func_pass
+	mkdir -p build
+	cd build
+	make
+
+	cd "$CURRENTDIR"/lifting_tools/llvm_ext_sym_pass
+	mkdir -p build
+	cd build
+	make
+
+	# export path to .so files for pass
+	line "$PATHSFILE" 'FUNC_PASS_LIB' "$CURRENTDIR/lifting_tools/llvm_func_pass/build/libfunc_pass.so"
+	line "$PATHSFILE" 'EXT_SYM_PASS_LIB' "$CURRENTDIR/lifting_tools/llvm_ext_sym_pass/build/libext_sym_pass.so"
+}
+
+clean_llvm_pass()
+{
+	cd "$CURRENTDIR"/lifting_tools/llvm_func_pass
+	rm -rf build
+
+	cd "$CURRENTDIR"/lifting_tools/llvm_ext_sym_pass
+	rm -rf build
+}
+
 # Options
 while getopts "hp:i:c:k:" o;
 do
@@ -367,7 +396,9 @@ package_install \
 [ -n "$CLEAN_LLVM" ]        && clean_llvm
 [ -n "$CLEAN_KLEE_UCLIBC" ] && clean_klee_uclibc
 [ -n "$CLEAN_KLEE" ]        && clean_klee
-[ -N "$CLEAN_BPF_LIFTER" ]	&& clean_bpf_lifter
+[ -n "$CLEAN_BPF_LIFTER" ]	&& clean_bpf_lifter
+[ -n "$CLEAN_LLVM_PASS" ]	&& clean_llvm_pass
+
 
 # Install things
 { [ -n "$INSTALL_ALL" ] || [ -n "$INSTALL_Z3" ]   ; } && source_install_z3
@@ -375,3 +406,4 @@ package_install \
 { [ -n "$INSTALL_ALL" ] || [ -n "$INSTALL_KLEE_UCLIBC" ] ; } && source_install_klee_uclibc
 { [ -n "$INSTALL_ALL" ] || [ -n "$INSTALL_KLEE" ] ; } && source_install_klee_func_ver
 { [ -n "$INSTALL_ALL" ] || [ -n "$INSTALL_BPF_LIFTER" ] ; } && source_install_bpf_lifter
+{ [ -n "$INSTALL_ALL" ] || [ -n "$INSTALL_LLVM_PASS" ] ; } && source_build_llvm_pass
