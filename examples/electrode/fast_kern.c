@@ -254,7 +254,6 @@ int fastPaxos_main(struct xdp_md *ctx)
 SEC("HandleRequest")
 int HandleRequest_main(struct xdp_md *ctx)
 {
-    printf("HandleRequest_main \n");
     void *data_end = (void *)(long)ctx->data_end;
     void *data = (void *)(long)ctx->data;
     struct ethhdr *eth = data;
@@ -303,7 +302,6 @@ int HandleRequest_main(struct xdp_md *ctx)
 SEC("HandlePrepareOK")
 int HandlePrepareOK_main(struct xdp_md *ctx)
 {
-    printf("HandlePrepareOK_main \n");
     // now data points to `fastPaxos header`.
     // we should parse this.
     void *data_end = (void *)(long)ctx->data_end;
@@ -339,7 +337,6 @@ int HandlePrepareOK_main(struct xdp_md *ctx)
 SEC("HandlePrepare")
 int HandlePrepare_main(struct xdp_md *ctx)
 {
-    printf("HandlePrepare_main \n");
 
     void *data_end = (void *)(long)ctx->data_end;
     void *data = (void *)(long)ctx->data;
@@ -391,7 +388,6 @@ int HandlePrepare_main(struct xdp_md *ctx)
 SEC("WriteBuffer")
 int WriteBuffer_main(struct xdp_md *ctx)
 {
-    printf("WriteBuffer_main \n");
     void *data_end = (void *)(long)ctx->data_end;
     void *data = (void *)(long)ctx->data;
     char *payload = data + sizeof(struct ethhdr) + sizeof(struct iphdr) + sizeof(struct udphdr) +
@@ -419,7 +415,6 @@ int WriteBuffer_main(struct xdp_md *ctx)
 SEC("PrepareFastReply")
 int PrepareFastReply_main(struct xdp_md *ctx)
 {
-    printf("PrepareFastReply_main \n");
     void *data_end = (void *)(long)ctx->data_end;
     void *data = (void *)(long)ctx->data;
     struct ethhdr *eth = data;

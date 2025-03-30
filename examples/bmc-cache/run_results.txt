@@ -1,0 +1,33 @@
+        bmc_rx_filter_main
+
+KLEE: done: total instructions = 126661
+KLEE: done: completed paths = 1505
+KLEE: done: partially completed paths = 0
+KLEE: done: generated tests = 1505
+Map Access control : VALID
+        Command being timed: "klee -kdalloc -kdalloc-heap-start-address=0x00040000000 -kdalloc-heap-size=1 -libc=uclibc --external-calls=all --disable-verify -solver-backend=z3 -silent-klee-assume=true --exit-on-error -max-memory=750000 -search=dfs -single-object-resolution=true -verification=true -read-set=true -write-set=true -map-correlation=true main.bc"
+        User time (seconds): 473.53
+        System time (seconds): 0.22
+        Percent of CPU this job got: 99%
+        Elapsed (wall clock) time (h:mm:ss or m:ss): 7:54.07
+        Average shared text size (kbytes): 0
+        Average unshared data size (kbytes): 0
+        Average stack size (kbytes): 0
+        Average total size (kbytes): 0
+        Maximum resident set size (kbytes): 96900
+        Average resident set size (kbytes): 0
+        Major (requiring I/O) page faults: 0
+        Minor (reclaiming a frame) page faults: 13082
+        Voluntary context switches: 14
+        Involuntary context switches: 10376
+        Swaps: 0
+        File system inputs: 0
+        File system outputs: 34904
+        Socket messages sent: 0
+        Socket messages received: 0
+        Signals delivered: 0
+        Page size (bytes): 4096
+        Exit status: 0
+
+
+        bmc_hash_keys_main
