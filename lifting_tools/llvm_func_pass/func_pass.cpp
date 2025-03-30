@@ -136,14 +136,20 @@ private:
 
     void transformMapLookups(Module &M) {
         // Find all calls to bpf_map_lookup_elem
-        std::vector<CallInst*> lookupCallsToReplace;
+        std::vector<std::pair<CallInst*,std::string>> CallsToReplace;
         for (auto &F : M) {
             for (auto &BB : F) {
                 for (auto &I : BB) {
                     if (CallInst *CI = dyn_cast<CallInst>(&I)) {
                         if (Function *CalledF = CI->getCalledFunction()) {
                             if (CalledF->getName() == "bpf_map_lookup_elem.toreplace") {
-                                lookupCallsToReplace.push_back(CI);
+                                CallsToReplace.push_back({CI,"bpf_map_lookup_elem"});
+                            }
+                            if (CalledF->getName() == "bpf_map_delete_elem.toreplace") {
+                                CallsToReplace.push_back({CI,"bpf_map_delete_elem"});
+                            }
+                            if (CalledF->getName() == "bpf_map_update_elem.toreplace") {
+                                CallsToReplace.push_back({CI,"bpf_map_update_elem"});
                             }
                         }
                     }
@@ -152,13 +158,13 @@ private:
         }
 
         // Now replace each call
-        for (CallInst *CI : lookupCallsToReplace) {
-            replaceMapLookup(CI, M);
+        for (auto &i : CallsToReplace) {
+            replaceMapLookupDelete(i.first, M, i.second, (i.second == "bpf_map_update_elem"));
         }
 
     }
 
-    void replaceMapLookup(CallInst *oldCall, Module &M) {
+    void replaceMapLookupDelete(CallInst *oldCall, Module &M, std::string func_name, bool is_update_func) {
         IRBuilder<> Builder(oldCall);
         
         // Get the map ID from the first argument
@@ -190,28 +196,51 @@ private:
                 // 2. Cast key to i8*
                 Value *keyPtr = Builder.CreateIntToPtr(keyArg, Type::getInt8PtrTy(M.getContext()), "key_ptr");
 
-                // 3. Get or create the bpf_map_lookup_elem function with correct signature
-                FunctionType *lookupFnType = FunctionType::get(
-                    Type::getInt8PtrTy(M.getContext()), // Return type: i8*
-                    {Type::getInt8PtrTy(M.getContext()), Type::getInt8PtrTy(M.getContext())}, // Args: i8*, i8*
-                    false
-                );
-                
-                // Function *lookupFn = cast<Function>(M.getOrInsertFunction("bpf_map_lookup_elem", lookupFnType).getCallee());
-                Function *lookupFn = Function::Create(lookupFnType, Function::ExternalLinkage, "bpf_map_lookup_elem", M);
-                // 4. Call bpf_map_lookup_elem
-                CallInst *newCall = Builder.CreateCall(lookupFn, {mapPtr, keyPtr}, "result_ptr");
-                
-                // 5. Cast result back to i64 if needed
-                Value *result = Builder.CreatePtrToInt(newCall, Type::getInt64Ty(M.getContext()));
-                
-                // Replace all uses of the old call with the new result
-                oldCall->replaceAllUsesWith(result);
-                
-                // Delete the old call
-                oldCall->eraseFromParent();
 
-                Function *FuncDecl = M.getFunction("bpf_map_lookup_elem.toreplace");
+                if(!is_update_func)
+                {
+                    // 3. Get or create the bpf_map_lookup_elem/bpf_map_delete_elem function with correct signature
+                    FunctionType *lookupFnType = FunctionType::get(
+                        Type::getInt8PtrTy(M.getContext()), // Return type: i8*
+                        {Type::getInt8PtrTy(M.getContext()), Type::getInt8PtrTy(M.getContext())}, // Args: i8*, i8*
+                        false
+                    );
+                    
+                    // Function *lookupFn = cast<Function>(M.getOrInsertFunction("bpf_map_lookup_elem", lookupFnType).getCallee());
+                    Function *lookupFn = Function::Create(lookupFnType, Function::ExternalLinkage, func_name, M);
+                    // 4. Call bpf_map_lookup_elem
+                    CallInst *newCall = Builder.CreateCall(lookupFn, {mapPtr, keyPtr}, "result_ptr");
+                    
+                    // 5. Cast result back to i64 if needed
+                    Value *result = Builder.CreatePtrToInt(newCall, Type::getInt64Ty(M.getContext()));
+                    
+                    // Replace all uses of the old call with the new result
+                    oldCall->replaceAllUsesWith(result);
+                    
+                    // Delete the old call
+                    oldCall->eraseFromParent();
+                }
+                else
+                {
+                    Value* valuearg = oldCall->getArgOperand(2);
+                    Value* flagarg = oldCall->getArgOperand(3);
+
+                    Value *valptr = Builder.CreateIntToPtr(valuearg, Type::getInt8PtrTy(M.getContext()), "val_ptr");
+
+                    FunctionType *updateFnType = FunctionType::get(
+                        Type::getInt8PtrTy(M.getContext()), // Return type: i8*
+                        {Type::getInt8PtrTy(M.getContext()), Type::getInt8PtrTy(M.getContext()), Type::getInt8PtrTy(M.getContext()), Type::getInt64Ty(M.getContext())}, // Args: i8*, i8*
+                        false
+                    );
+
+                    Function *updateFn = Function::Create(updateFnType, Function::ExternalLinkage, func_name, M);
+                    CallInst *newCall = Builder.CreateCall(updateFn, {mapPtr, keyPtr, valptr, flagarg}, "result_ptr");
+                    Value *result = Builder.CreatePtrToInt(newCall, Type::getInt64Ty(M.getContext()));
+                    oldCall->replaceAllUsesWith(result);
+                    oldCall->eraseFromParent();
+                }
+
+                Function *FuncDecl = M.getFunction(func_name + ".toreplace");
                 FuncDecl->eraseFromParent();
 
             }

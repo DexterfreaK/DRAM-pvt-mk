@@ -109,7 +109,7 @@ def generate_config(dir):
             mapinfo["key_size"] = int(info[2])
             mapinfo["value_size"] = int(info[3])
             mapinfo["max_entries"] = int(info[4])
-            mapinfo["ops"] = ["lookup"]
+            mapinfo["ops"] = ["lookup","update","delete"]
             config["maps"].append(mapinfo)
 
     return config

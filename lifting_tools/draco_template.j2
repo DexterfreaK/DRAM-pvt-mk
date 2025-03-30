@@ -47,23 +47,30 @@ struct bpf_map_def SEC(".maps") {{ map.name }} = {
 };
 {% endfor %}
 
+struct bpf_map_def SEC(".maps") _liftingtools_dummymap = {
+    .type = BPF_MAP_TYPE_ARRAY,
+    .key_size = sizeof(__u32),
+    .value_size = sizeof(__u32),
+    .max_entries = 1,
+};
+
 SEC("xdp") extern int {{ extern_func }}(struct xdp_md *ctx);
 
 SEC("xdp")
-int xdp_main(struct xdp_md *ctx) {
+int _liftingtools_temp_xdp_main(struct xdp_md *ctx) {
     {% for map in maps %}
         {% if 'lookup' in map.ops %}
     __u32 {{ map.name }}_key = 0;
-    void* {{ map.name }}_val = bpf_map_lookup_elem(&{{ map.name }}, &{{ map.name }}_key);
+    void* {{ map.name }}_val = bpf_map_lookup_elem(&_liftingtools_dummymap, &{{ map.name }}_key);
         {% endif %}
         {% if 'update' in map.ops %}
     __u32 {{ map.name }}_update_key = 0;
     __u32 {{ map.name }}_update_val = 1;
-    bpf_map_update_elem(&{{ map.name }}, &{{ map.name }}_update_key, &{{ map.name }}_update_val, 0);
+    bpf_map_update_elem(&_liftingtools_dummymap, &{{ map.name }}_update_key, &{{ map.name }}_update_val, 0);
         {% endif %}
         {% if 'delete' in map.ops %}
     __u32 {{ map.name }}_delete_key = 0;
-    bpf_map_delete_elem(&{{ map.name }}, &{{ map.name }}_delete_key);
+    bpf_map_delete_elem(&_liftingtools_dummymap, &{{ map.name }}_delete_key);
         {% endif %}
     {% endfor %}
     return XDP_PASS;

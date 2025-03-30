@@ -6,7 +6,7 @@
 #include <linux/ip.h>
 
 struct {
-    __uint(type, BPF_MAP_TYPE_ARRAY);
+    __uint(type, BPF_MAP_TYPE_HASH);
     __uint(max_entries, 256);
     __type(key, __u32);
     __type(value, __u32);
@@ -17,7 +17,11 @@ int xdp_reader(struct xdp_md *ctx)
 {
     __u32 key = 0;
     void* count = bpf_map_lookup_elem(&packet_stats, &key);
-    if (count) {
+    if (count!=NULL) {
+        __u32 key2 = 1;
+        __u32 val2 = 2;
+        bpf_map_update_elem(&packet_stats, &key2, &val2, 0);
+        bpf_map_delete_elem(&packet_stats, &key);
         return XDP_DROP;
     }
     
