@@ -21,12 +21,22 @@
  * This file contains definition of maps used by the balancer typically
  * involving information pertaining to proper forwarding of packets
  */
-
-#include "bpf.h"
-#include "bpf_helpers.h"
+#include <linux/types.h>
+#include <linux/bpf.h>
+#include <bpf/bpf_helpers.h>
 
 #include "balancer_consts.h"
 #include "balancer_structs.h"
+
+
+#define BPF_ANNOTATE_KV_PAIR(name, type_key, type_val)    \
+  struct ____btf_map_##name {       \
+    type_key key;         \
+    type_val value;         \
+  };              \
+  struct ____btf_map_##name       \
+  __attribute__ ((section(".maps." #name), used))   \
+    ____btf_map_##name = { }
 
 // map, which contains all the vips for which we are doing load balancing
 struct bpf_map_def SEC("maps") vip_map = {

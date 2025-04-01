@@ -161,6 +161,7 @@ static inline int compute_message_type(char *payload, void *data_end)
 SEC("fastPaxos")
 int fastPaxos_main(struct xdp_md *ctx)
 {
+    printf("main\n");
     void *data_end = (void *)(long)ctx->data_end;
     void *data = (void *)(long)ctx->data;
     struct ethhdr *eth = data;
@@ -254,6 +255,7 @@ int fastPaxos_main(struct xdp_md *ctx)
 SEC("HandleRequest")
 int HandleRequest_main(struct xdp_md *ctx)
 {
+    printf("handler request\n");
     void *data_end = (void *)(long)ctx->data_end;
     void *data = (void *)(long)ctx->data;
     struct ethhdr *eth = data;
@@ -302,6 +304,7 @@ int HandleRequest_main(struct xdp_md *ctx)
 SEC("HandlePrepareOK")
 int HandlePrepareOK_main(struct xdp_md *ctx)
 {
+    printf("prepare ok\n");
     // now data points to `fastPaxos header`.
     // we should parse this.
     void *data_end = (void *)(long)ctx->data_end;
@@ -314,6 +317,7 @@ int HandlePrepareOK_main(struct xdp_md *ctx)
     __u32 msg_replicaIdx = *((__u32 *)data + 2);
     __u32 idx = msg_opnum & (QUORUM_BITSET_ENTRY - 1);
     struct paxos_quorum *entry = bpf_map_lookup_elem(&map_quorum, &idx);
+    printf("reading---- \n");
     if (!entry)
         return XDP_PASS;
 
@@ -337,7 +341,7 @@ int HandlePrepareOK_main(struct xdp_md *ctx)
 SEC("HandlePrepare")
 int HandlePrepare_main(struct xdp_md *ctx)
 {
-
+    printf("prepare main\n");
     void *data_end = (void *)(long)ctx->data_end;
     void *data = (void *)(long)ctx->data;
     char *payload = data + sizeof(struct ethhdr) + sizeof(struct iphdr) + sizeof(struct udphdr);
@@ -356,6 +360,8 @@ int HandlePrepare_main(struct xdp_md *ctx)
     struct paxos_ctr_state *ctr_state = bpf_map_lookup_elem(&map_ctr_state, &zero);
     if (!context || !ctr_state)
         return XDP_PASS; // can't find the context...
+
+    printf("exists bc \n");
 
     // asd123www: rare case, not handled properly now.
     if (ctr_state->state != STATUS_NORMAL)
@@ -388,6 +394,7 @@ int HandlePrepare_main(struct xdp_md *ctx)
 SEC("WriteBuffer")
 int WriteBuffer_main(struct xdp_md *ctx)
 {
+    printf("write buffer main\n");
     void *data_end = (void *)(long)ctx->data_end;
     void *data = (void *)(long)ctx->data;
     char *payload = data + sizeof(struct ethhdr) + sizeof(struct iphdr) + sizeof(struct udphdr) +
@@ -415,6 +422,7 @@ int WriteBuffer_main(struct xdp_md *ctx)
 SEC("PrepareFastReply")
 int PrepareFastReply_main(struct xdp_md *ctx)
 {
+    printf("fast reply main\n");
     void *data_end = (void *)(long)ctx->data_end;
     void *data = (void *)(long)ctx->data;
     struct ethhdr *eth = data;

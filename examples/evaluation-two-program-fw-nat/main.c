@@ -36,6 +36,8 @@ int main(int argc, char** argv) {
   test.data_end = (long)(pkt + 1);
   test.data_meta = 0;
   test.ingress_ifindex = 0;
+
+  __start_verification();
   xdp_fw(&test);
   __separate();
   xdp_nat(&test);

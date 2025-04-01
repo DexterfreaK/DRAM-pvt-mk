@@ -9,6 +9,8 @@ void __separate() {
   // do nothing. This function is used as a separator for running two programs
 }
 
+void __start_verification() {}
+
 void assume_map_contains_key(struct bpf_map_def *map, const void *key) {
   klee_assume(bpf_map_lookup_elem(map, key) != NULL);
 }

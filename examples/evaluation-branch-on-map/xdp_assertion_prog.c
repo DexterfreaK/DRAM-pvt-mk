@@ -64,6 +64,7 @@ int xdp_prog(struct xdp_md *ctx) {
 #ifdef KLEE_VERIFICATION
 #include "klee/klee.h"
 #include <stdlib.h>
+#include "../../verification_tools/verification_helpers.h"
 int main(int argc, char** argv) {
 	// int key = 5;
 	// int count = 1555;
@@ -83,6 +84,7 @@ int main(int argc, char** argv) {
   test.data_meta = 0;
   test.ingress_ifindex = 0;
 
+  __start_verification();
 	if (xdp_prog(&test))
 		return 1;
 	return 0;

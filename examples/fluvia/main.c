@@ -108,6 +108,8 @@ int xdp_prog(struct xdp_md *ctx)
 
 #ifdef KLEE_VERIFICATION
 
+#include "../../verification_tools/verification_helpers.h"
+
 struct __attribute__((__packed__)) pkt {
   struct ethhdr ether;
   struct iphdr ipv4;
@@ -115,7 +117,7 @@ struct __attribute__((__packed__)) pkt {
 };
 
 int main(int argc, char **argv) {
-  BPF_MAP_INIT(&ipfix_probe_map, "ipfix_probes", "", "");
+  BPF_MAP_INIT(&ipfix_probe_map, "ipfix_probe_map", "", "");
   
   struct pkt *pkt = malloc(sizeof(struct pkt));
   klee_make_symbolic(pkt, sizeof(struct pkt), "packet");
@@ -128,6 +130,7 @@ int main(int argc, char **argv) {
   test.rx_queue_index = 0;
 
   bpf_begin();
+  __start_verification();
   if (xdp_prog(&test))
     return 1;
   return 0;

@@ -29,6 +29,7 @@
 #include "katran_pkts.h"
 #include "../../verification_tools/partial_spec.h"
 #include "../../verification_tools/parsing_helpers_spec.h"
+#include "../../verification_tools/verification_helpers.h"
 int spec(struct xdp_md* ctx) {
   struct eth_hdr *eth = get_eth(ctx);
   if (eth->eth_proto == BE_ETH_P_IP) {
@@ -113,7 +114,9 @@ int main(int argc, char** argv){
   klee_print_expr("type", type);
   klee_print_expr("packet_size", get_packet_size(type));
 
-  functional_verify(balancer_ingress, spec, &test, get_packet_size(type), get_eth_offset(type));
+  __start_verification();
+  balancer_ingress(&test);
+  // functional_verify(balancer_ingress, spec, &test, get_packet_size(type), get_eth_offset(type));
 
   // if (balancer_ingress(&test))
   //   return 1;

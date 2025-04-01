@@ -1,0 +1,12 @@
+Read backend_mac_addrs_map
+Read backend_metadata_map
+Read backend_stats_map
+Read conn_id_to_real_map
+Read flowtable
+Read vip_map
+Read vip_stats_map
+Read vip_to_real_map
+Write backend_stats_map
+Write flowtable
+Write vip_map
+Write vip_stats_map

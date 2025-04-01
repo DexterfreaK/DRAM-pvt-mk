@@ -12,9 +12,9 @@
 #define USES_BPF_MAP_LOOKUP_ELEM
 #endif
 
-// #ifndef USES_BPF_MAP_UPDATE_ELEM
-// #define USES_BPF_MAP_UPDATE_ELEM
-// #endif
+#ifndef USES_BPF_MAP_UPDATE_ELEM
+#define USES_BPF_MAP_UPDATE_ELEM
+#endif
 
 
 #include <linux/bpf.h>
@@ -101,7 +101,7 @@ int xdp_main(struct xdp_md *ctx) {
 	bpf_map_update_elem(&read_write, &key, &value, BPF_ANY);
 	result = bpf_map_lookup_elem(&read_write, &key);
 
-	// // // Invalid map operations - attempt write to read-only map
+	// Invalid map operations - attempt write to read-only map
 	key = 2;
 	value = 100;
 	bpf_map_update_elem(&no_access, &key, &value, BPF_ANY); // This should fail verification
@@ -121,9 +121,10 @@ int xdp_main(struct xdp_md *ctx) {
 #ifdef KLEE_VERIFICATION
 #include "klee/klee.h"
 #include <stdlib.h>
+#include "../../verification_tools/verification_helpers.h"
 int main() {
 	// init maps
-	BPF_MAP_INIT(&packet_stats, "packet_stats", "", "");
+	// BPF_MAP_INIT(&packet_stats, "packet_stats", "", "");
 	BPF_MAP_INIT(&read_write, "read_write", "", "");
 	BPF_MAP_INIT(&no_access, "no_access", "", "");
 	BPF_MAP_INIT(&write_only, "write_only", "", "");
@@ -139,6 +140,7 @@ int main() {
 	test.ingress_ifindex = 0;
 
 	// execute
+	__start_verification();
 	xdp_main(&test);
 	return 0;
 }

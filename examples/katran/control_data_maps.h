@@ -22,11 +22,23 @@
  * information about encapsulation / decapsulation
  */
 
-#include "bpf.h"
-#include "bpf_helpers.h"
+#include <linux/bpf.h>
+#include <bpf/bpf_helpers.h>
 
 #include "balancer_consts.h"
 #include "balancer_structs.h"
+
+#include <linux/types.h>
+
+#define BPF_ANNOTATE_KV_PAIR(name, type_key, type_val)    \
+  struct ____btf_map_##name {       \
+    type_key key;         \
+    type_val value;         \
+  };              \
+  struct ____btf_map_##name       \
+  __attribute__ ((section(".maps." #name), used))   \
+    ____btf_map_##name = { }
+
 
 // control array. contains metadata such as default router mac
 // and/or interfaces ifindexes

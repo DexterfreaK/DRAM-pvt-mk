@@ -51,6 +51,7 @@ size_t get_eth_offset(enum PacketTypes type) {
   if(type == ICMPV4) return sizeof(struct iphdr);
   if (type == IPV6 || type == FRAGV6) return sizeof(struct ipv6hdr);
   if (type == ICMPV6) return sizeof(struct ipv6hdr);
+  return 0;
 }
 
 void get_packet(enum PacketTypes type, struct xdp_md* ctx){

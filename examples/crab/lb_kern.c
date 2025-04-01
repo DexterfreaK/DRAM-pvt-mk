@@ -243,6 +243,7 @@ OUT:
 #ifdef KLEE_VERIFICATION
 #include "klee/klee.h"
 #include <stdlib.h>
+#include "../../verification_tools/verification_helpers.h"
 
 int main(int argc, char **argv) {
 
@@ -260,10 +261,10 @@ int main(int argc, char **argv) {
   }
 
   /* Step 2: Initializing each BPF map. The strings are not very important for just symbex (needed only for human readable performance interfaces) */
-  BPF_MAP_INIT(&targets_map, "targets_list", "", "target_ip");
-  BPF_MAP_INIT(&macs_map, "ips_to_mac_map", "ip", "mac_addr");
-  BPF_MAP_INIT(&targets_count, "targets_counter", "", "num_targets");
-  BPF_MAP_INIT(&cpu_rr_idx, "cpu_rr_id", "", "last_sent_target");
+  BPF_MAP_INIT(&targets_map, "targets_map", "", "target_ip");
+  BPF_MAP_INIT(&macs_map, "macs_map", "ip", "mac_addr");
+  BPF_MAP_INIT(&targets_count, "targets_count", "", "num_targets");
+  BPF_MAP_INIT(&cpu_rr_idx, "cpu_rr_idx", "", "last_sent_target");
 
   __u32 zero = 0, targets = num_targets;
 
@@ -294,6 +295,7 @@ int main(int argc, char **argv) {
 
   bpf_begin();
   /* Invoking target function */
+  __start_verification();
   if (xdp_prog_simple(&test))
     return 1;
   return 0;

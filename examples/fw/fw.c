@@ -27,9 +27,11 @@ struct __attribute__((__packed__)) pkt {
   char payload[1500];
 };
 
+#include "../../verification_tools/verification_helpers.h"
+
 int main(int argc, char** argv){
-  BPF_MAP_INIT(&tx_port, "tx_devices_map", "", "tx_device");
-  BPF_MAP_INIT(&flow_ctx_table, "flowtable", "pkt.flow", "output_port");
+  BPF_MAP_INIT(&tx_port, "tx_port", "", "tx_device");
+  BPF_MAP_INIT(&flow_ctx_table, "flow_ctx_table", "pkt.flow", "output_port");
   addDependency(&tx_port, &flow_ctx_table);
 
   /* Init from xdp_fw_user.c */
@@ -60,6 +62,7 @@ int main(int argc, char** argv){
   test.rx_queue_index = 0;
   
   bpf_begin();
+  __start_verification();
   if (xdp_fw_prog(&test))
     return 1;
   return 0;

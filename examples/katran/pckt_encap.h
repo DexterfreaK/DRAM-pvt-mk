@@ -31,9 +31,9 @@
 #include "balancer_helpers.h"
 #include "balancer_structs.h"
 #include "control_data_maps.h"
-#include "bpf.h"
+#include <linux/bpf.h>
 #include "bpf_endian.h"
-#include "bpf_helpers.h"
+#include <bpf/bpf_helpers.h>
 #include "encap_helpers.h"
 #include "pckt_parsing.h"
 

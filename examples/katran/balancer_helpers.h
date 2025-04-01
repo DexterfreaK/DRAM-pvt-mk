@@ -28,17 +28,17 @@
 #include "balancer_consts.h"
 #include "balancer_structs.h"
 #include "control_data_maps.h"
-#include "bpf.h"
-#include "bpf_helpers.h"
+#include <linux/bpf.h>
+#include <bpf/bpf_helpers.h>
 #include "csum_helpers.h"
 #include "introspection.h"
 
-#define bpf_printk(fmt, ...)                                    \
-({                                                              \
-               char ____fmt[] = fmt;                            \
-               bpf_trace_printk(____fmt, sizeof(____fmt),       \
-                                ##__VA_ARGS__);                 \
-})
+// #define bpf_printk(fmt, ...)                                    \
+// ({                                                              \
+//                char ____fmt[] = fmt;                            \
+//                bpf_trace_printk(____fmt, sizeof(____fmt),       \
+//                                 ##__VA_ARGS__);                 \
+// })
 
 #ifdef KATRAN_INTROSPECTION
 /**

@@ -114,17 +114,20 @@ int xdp_main(struct xdp_md *ctx) {
 
 
 #ifdef KLEE_VERIFICATION
+#include "../../verification_tools/verification_helpers.h"
 int set_up_maps() {
-  BPF_MAP_INIT(&my_map, "", "", "");
+  BPF_MAP_INIT(&my_map, "my_map", "", "");
   int one = 1;
   int two = 2;
   bpf_map_update_elem(&my_map, &one, &two, 0);
+  return 0;
 }
 
 int main() {
 	struct pkt *packet = create_packet(sizeof(struct pkt));
 	struct xdp_md *ctx = create_ctx(packet, sizeof(struct pkt), 0);
 	set_up_maps();
+	__start_verification();
 	xdp_main(ctx);
 }
 #endif

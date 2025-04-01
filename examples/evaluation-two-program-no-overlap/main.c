@@ -20,7 +20,7 @@
 #include "klee/klee.h"
 #include <stdlib.h>
 int main(int argc, char** argv) {
-  BPF_MAP_INIT(&macs, "macs_map", "", "");
+  BPF_MAP_INIT(&macs, "macs", "", "");
 	struct pkt *pkt = malloc(sizeof(struct pkt));
 	klee_make_symbolic(pkt, sizeof(struct pkt), "user_pkt");
 	struct xdp_md test;
@@ -28,6 +28,7 @@ int main(int argc, char** argv) {
   test.data_end = (long)(pkt + 1);
   test.data_meta = 0;
   test.ingress_ifindex = 0;
+  __start_verification();
   xdp_first_prog(&test);
   __separate();
   xdp_second_prog(&test);

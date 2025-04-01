@@ -1,0 +1,4 @@
+Read targets_map
+Read macs_map
+Read targets_count
+ReadWrite cpu_rr_idx
