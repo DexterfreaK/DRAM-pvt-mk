@@ -25,8 +25,8 @@
 #define USES_BPF_XDP_ADJUST_TAIL
 #endif
 
-#ifndef FAST_QUORUM_PRUNE
-#define FAST_QUORUM_PRUNE
+#ifndef FAST_REPLY
+#define FAST_REPLY
 #endif
 
 

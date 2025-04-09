@@ -111,8 +111,8 @@ int main(int argc, char** argv){
 
   bpf_begin();
 
-  klee_print_expr("type", type);
-  klee_print_expr("packet_size", get_packet_size(type));
+  // klee_print_expr("type", type);
+  // klee_print_expr("packet_size", get_packet_size(type));
 
   __start_verification();
   balancer_ingress(&test);

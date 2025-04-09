@@ -162,6 +162,11 @@ private:
             replaceMapLookupDelete(i.first, M, i.second, (i.second == "bpf_map_update_elem"));
         }
 
+        for (auto &i : CallsToReplace) {
+            Function *FuncDecl = M.getFunction(i.second + ".toreplace");
+            FuncDecl->eraseFromParent();
+        }
+
     }
 
     void replaceMapLookupDelete(CallInst *oldCall, Module &M, std::string func_name, bool is_update_func) {
@@ -239,9 +244,6 @@ private:
                     oldCall->replaceAllUsesWith(result);
                     oldCall->eraseFromParent();
                 }
-
-                Function *FuncDecl = M.getFunction(func_name + ".toreplace");
-                FuncDecl->eraseFromParent();
 
             }
         

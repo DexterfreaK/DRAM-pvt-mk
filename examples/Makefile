@@ -236,7 +236,8 @@ verify-object-code: $(OBJECT_FILE_PATH)
 	/usr/bin/time -v \
 		klee -kdalloc -kdalloc-heap-start-address=0x00040000000 -kdalloc-heap-size=1 -libc=uclibc --external-calls=all --disable-verify \
 		-solver-backend=z3 --exit-on-error -max-memory=750000 -search=dfs -single-object-resolution=true \
-		-verification=true -read-set=true -write-set=true -map-correlation=true -read-write-two-phase=true final_linked_ir.bc
+		-verification=true -read-set=true -write-set=true -map-correlation=true -read-write-two-phase=true \
+		-helper-function-restriction-rules="$(PWD)/hFuncAccessList" -map-access-control-file="$(PWD)/mapAccessList" final_linked_ir.bc
 
 compile-template: $(input_file) Makefile $(KERN_USER_H) $(EXTRA_DEPS)
 	$(CLANG) \
@@ -283,7 +284,7 @@ verify-packet-policy: $(XDP_C) Makefile $(KERN_USER_H) $(EXTRA_DEPS)
 		-solver-backend=z3 --exit-on-error -max-memory=750000 -search=dfs -single-object-resolution=true \
 		-verification=true -read-set=true -write-set=true -map-correlation=true -read-write-two-phase=true -map-access-control-file=$(MAP_CONFIG_PATH) $(XDP_TARGETS).bc
 
-symbex-cve-2022-2322:
+symbex-cve:
 	# compile the program
 	$(CLANG) \
 		-DKLEE_VERIFICATION\
@@ -355,7 +356,7 @@ verify-constraint-access: $(XDP_C) Makefile $(KERN_USER_H) $(EXTRA_DEPS)
 		-O0 -emit-llvm -c -g $(XDP_C)
 	# $(LLC) -march=bpf -filetype=obj -o $@ ${@:.o=.ll}
 	llvm-dis -show-annotations $(XDP_TARGETS).bc
-	/usr/bin/time -v \
+	taskset -c 4 /usr/bin/time -v \
 		klee -kdalloc -kdalloc-heap-start-address=0x00040000000 -kdalloc-heap-size=1 -libc=uclibc --external-calls=all --disable-verify \
 		-solver-backend=z3 -silent-klee-assume=true --exit-on-error -max-memory=750000 -search=dfs -single-object-resolution=true \
 		-verification=true -read-set=true -write-set=true -map-correlation=true -restrict-helper-function=true -helper-function-restriction-rules="$(PWD)/hFuncAccessList" -map-access-control-file="$(PWD)/mapAccessList"  $(XDP_TARGETS).bc
