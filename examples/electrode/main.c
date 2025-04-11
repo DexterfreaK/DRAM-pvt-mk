@@ -37,6 +37,13 @@
 // include BMC related ebpf programs
 #include "fast_kern.c"
 
+/*
+Electrode works for process that is bounded to port 12345
+1. Allow read and write to packets destined for port 12345
+2. Program can read all header fields (54 bytes) and beginning part of payload which contains some control information like magic bytes etc (64 bytes max) => total(118 bytes)
+3. Program can also edit those information as per need
+*/
+
 #ifdef KLEE_VERIFICATION
 #include "../../verification_tools/verification_helpers.h"
 

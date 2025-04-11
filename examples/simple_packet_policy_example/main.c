@@ -12,10 +12,6 @@
 // #define USES_BPF_MAP_LOOKUP_ELEM
 // #endif
 
-#ifndef USES_BPF_MAP_UPDATE_ELEM
-#define USES_BPF_MAP_UPDATE_ELEM
-#endif
-
 
 #include <linux/bpf.h>
 #include <bpf/bpf_helpers.h>
@@ -56,38 +52,18 @@ int xdp_main(struct xdp_md *ctx) {
 	if (data + nh_off  > data_end)
 		return XDP_PASS;
 
-	if(ip->protocol != IPPROTO_TCP){
-		return XDP_PASS;
+	if(ip->saddr == 12345)
+	{
+		ip->tot_len = 100;
+		// printf("Getting value : %d \n", val);
 	}
 
-	tcp = data + nh_off;
-	nh_off += sizeof(*tcp);
-	if (data + nh_off  > data_end)
-	 	goto EOP;
-
-	// payload = data + nh_off;
-	nh_off += 3;
-	if (data + nh_off  > data_end)
-		return XDP_PASS;
-
-	int key = 1;
-	int value = 42;
-
-	// Valid map operations - read and write allowed
-	bpf_map_update_elem(&read_write, &key, &value, BPF_ANY);
-
-    // if(tcp->dest == htons(80)) {
-    //     return XDP_PASS;
-    // }
-
 	return XDP_PASS;
-
-    EOP:
-        return XDP_DROP;
 }
 
-#ifdef KLEE_VERIFICATION
+// #ifdef KLEE_VERIFICATION
 #include "klee/klee.h"
+#include "../../verification_tools/verification_helpers.h"
 #include <stdlib.h>
 int main() {
 	// init maps
@@ -104,7 +80,8 @@ int main() {
 	test.ingress_ifindex = 0;
 
 	// execute
+	__start_verification();
 	xdp_main(&test);
 	return 0;
 }
-#endif
+// #endif

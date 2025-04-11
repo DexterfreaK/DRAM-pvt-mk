@@ -47,6 +47,13 @@ int spec(struct xdp_md* ctx) {
   return XDP_ANY_IGNORE_STATE;
 }
 
+/*
+Katran is a high performance L4 loadbalancer
+1. Max katran packet header 146 bytes in size. Loadbalancer needs read access to all the fields
+2. Write Access : Same header part need to be written
+3. All port and IP address are allowed to be accessed by the loadbalancer
+*/
+
 int main(int argc, char** argv){
   BPF_TIME_INIT();
   BPF_MAP_INIT(&vip_map, "vip_map", "pkt.vip", "vip_metadata");

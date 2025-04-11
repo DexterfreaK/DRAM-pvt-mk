@@ -21,6 +21,7 @@
 #include <stdint.h>
 #include <bpf/bpf_endian.h>
 #include <sys/socket.h>
+#include <string.h>
 
 #include <bpf/bpf_helpers.h>
 
@@ -42,6 +43,11 @@ static __always_inline int ip_decrease_ttl(struct iphdr *iph)
 	iph->check = ( __sum16)(check + (check >= 0xFFFF));
 	return --iph->ttl;
 }
+
+/*
+Requires
+1. Read and write access to the header fields of packet for all IP and port
+*/
 
 SEC("xdp")
 int xdp_fwd_flags(struct xdp_md *ctx)

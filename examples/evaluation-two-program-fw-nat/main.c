@@ -21,6 +21,12 @@
 #include "firewall.h"
 #include "nat.h"
 
+/*
+Firewall and NAT program need access to headers of the packet
+1. Firewall does not edit any part of packet it just accepts or rejects packet
+2. NAT also require read access to packet headers but can also write the ip "source address" and update the "checksum" for network address translation
+*/
+
 #ifdef KLEE_VERIFICATION
 #include "klee/klee.h"
 #include <stdlib.h>

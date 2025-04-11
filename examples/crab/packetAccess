@@ -1,0 +1,2 @@
+sPort|dPort|sIP|dIP|read-access|write-access
+*|*|*|*|0-1554|0-1500

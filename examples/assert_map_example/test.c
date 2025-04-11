@@ -124,10 +124,17 @@ int set_up_maps() {
 }
 
 int main() {
-	struct pkt *packet = create_packet(sizeof(struct pkt));
-	struct xdp_md *ctx = create_ctx(packet, sizeof(struct pkt), 0);
+	struct pkt *pkt = malloc(sizeof(struct pkt));
+    klee_make_symbolic(pkt, sizeof(struct pkt), "user_pkt");
+    pkt->ether.h_proto = htons(ETH_P_IP);
+	struct xdp_md ctx;
+	ctx.data = (long)(&(pkt->ether));
+	ctx.data_end = (long)(pkt + 1);
+	ctx.data_meta = 0;
+	ctx.ingress_ifindex = 0;
+
 	set_up_maps();
 	__start_verification();
-	xdp_main(ctx);
+	xdp_main(&ctx);
 }
 #endif

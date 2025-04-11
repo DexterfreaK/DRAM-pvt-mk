@@ -46,7 +46,7 @@ int xdp_first_prog(struct xdp_md *ctx) {
 		return XDP_DROP;
 
 	array_key = 4;
-  value = bpf_map_lookup_elem(&array_map, &array_key);
+  	value = bpf_map_lookup_elem(&array_map, &array_key);
 	if (!value)
 		return XDP_DROP;
 

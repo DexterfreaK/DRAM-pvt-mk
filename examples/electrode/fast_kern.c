@@ -170,12 +170,12 @@ int fastPaxos_main(struct xdp_md *ctx)
 
     if (ip + 1 > data_end)
         return XDP_PASS; // boundary check.
-    if (ip->protocol != IPPROTO_UDP)
-        return XDP_PASS; // check it's udp packet.
     if (udp + 1 > data_end)
         return XDP_PASS; // boundary check.
     if (udp->dest != htons(12345))
         return XDP_PASS; // port check, our process bound to 12345.
+    if (ip->protocol != IPPROTO_UDP)
+        return XDP_PASS; // check it's udp packet.
     if (payload + MAGIC_LEN > data_end)
         return XDP_PASS; // don't have magic bits...
     // asd123www: currently, we don't support reassembly.

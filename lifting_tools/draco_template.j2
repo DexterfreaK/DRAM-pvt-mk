@@ -78,6 +78,7 @@ int _liftingtools_temp_xdp_main(struct xdp_md *ctx) {
 
 #ifdef KLEE_VERIFICATION
 #include "klee/klee.h"
+#include "../../verification_tools/verification_helpers.h"
 #include <stdlib.h>
 int main() {
     {% for map in maps %}
@@ -86,15 +87,16 @@ int main() {
     
     // Context initialization
     struct pkt *pkt = malloc(sizeof(struct pkt));
-    klee_make_symbolic(pkt, sizeof(struct pkt), "user_pkt");
-    struct xdp_md test = {
-        .data = (long)(&(pkt->ether)),
-        .data_end = (long)(pkt + 1),
-        .data_meta = 0,
-        .ingress_ifindex = 0
-    };
+	klee_make_symbolic(pkt, sizeof(struct pkt), "user_pkt");
+	pkt->ether.h_proto = htons(ETH_P_IP);
+	struct xdp_md test;
+	test.data = (long)(&(pkt->ether));
+	test.data_end = (long)(pkt + 1);
+	test.data_meta = 0;
+	test.ingress_ifindex = 0;
     
     // Execute program
+    __start_verification();
     int val = {{ extern_func }}(&test);
     return 0;
 }

@@ -196,6 +196,15 @@ static __always_inline int handle_syn(struct xdp_md *ctx, struct ethhdr *ethh,
   return XDP_TX;
 }
 
+/*
+Layer-4 : Loadbalancer
+1. Packet read permission for eth and ip layer
+2. Read and write permission for transport layer
+3. No access to payload
+
+some information like offset etc are symbollic think how to tackle them 
+*/
+
 SEC("xdp")
 int xdp_prog_simple(struct xdp_md *ctx) {
   void *data_end = (void *)(long)ctx->data_end;

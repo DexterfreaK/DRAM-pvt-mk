@@ -79,10 +79,10 @@ int main(int argc, char** argv) {
 	// pkt->ipv4.saddr = key;
 	assume_map_does_not_contain_key(&sourceAddressInfo, &pkt->ipv4.saddr);
 	struct xdp_md test;
-  test.data = (long)(&(pkt->ether));
-  test.data_end = (long)(pkt + 1);
-  test.data_meta = 0;
-  test.ingress_ifindex = 0;
+	test.data = (long)(&(pkt->ether));
+	test.data_end = (long)(pkt + 1);
+	test.data_meta = 0;
+	test.ingress_ifindex = 0;
 
   __start_verification();
 	if (xdp_prog(&test))

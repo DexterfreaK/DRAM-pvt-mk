@@ -16,6 +16,11 @@
 #include "program1.h"
 #include "program2.h"
 
+/*
+Program to show map interactions
+1. Only packet header read is needed, no other access to the packet, also writing some part of eth header
+*/
+
 #ifdef KLEE_VERIFICATION
 #include "klee/klee.h"
 #include <stdlib.h>

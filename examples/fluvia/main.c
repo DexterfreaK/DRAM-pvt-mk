@@ -35,6 +35,11 @@
 
 #include "xdp_map.h"
 
+/*
+It's a IPFIX protocol for analyzing network traffic flow data
+1. Read access to header data + segment routing header ==> Initial 14+40+8+160(max) = 222 bytes
+*/
+
 SEC("xdp")
 int xdp_prog(struct xdp_md *ctx)
 {

@@ -29,6 +29,11 @@ struct __attribute__((__packed__)) pkt {
 
 #include "../../verification_tools/verification_helpers.h"
 
+/*
+hXDP is a firewall Efficient Software Packet Processing on FPGA NICs
+1. Again need read access to header of tha packet, no other access
+*/
+
 int main(int argc, char** argv){
   BPF_MAP_INIT(&tx_port, "tx_port", "", "tx_device");
   BPF_MAP_INIT(&flow_ctx_table, "flow_ctx_table", "pkt.flow", "output_port");
