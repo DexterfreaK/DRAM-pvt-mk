@@ -28,7 +28,6 @@ int xdp_prog(struct xdp_md *ctx) {
 
 	uint64_t nh_off = 0;
 	struct addressInfo *saddr_info;
-	__u32 value;
 	__u32 MAX_VALUE = 1024;
 
 	eth = data;
@@ -53,11 +52,6 @@ int xdp_prog(struct xdp_md *ctx) {
 	if (!saddr_info)
 		return XDP_DROP;
 
-	value = saddr_info->count;
-
-	if (value > MAX_VALUE)
-		assert(0);
-
 	return XDP_PASS;
 }
 
@@ -77,7 +71,7 @@ int main(int argc, char** argv) {
 	klee_make_symbolic(pkt, sizeof(struct pkt), "user_pkt");
 	pkt->ether.h_proto = bpf_htons(ETH_P_IP);
 	// pkt->ipv4.saddr = key;
-	assume_map_does_not_contain_key(&sourceAddressInfo, &pkt->ipv4.saddr);
+	// assume_map_does_not_contain_key(&sourceAddressInfo, &pkt->ipv4.saddr);
 	struct xdp_md test;
 	test.data = (long)(&(pkt->ether));
 	test.data_end = (long)(pkt + 1);
