@@ -52,7 +52,7 @@ int main(int argc, char** argv){
 
 
   struct pkt *pkt = malloc(sizeof(struct pkt));
-  klee_make_symbolic(pkt, sizeof(struct pkt), "user_buf");
+  klee_make_symbolic(pkt, sizeof(struct pkt), "constraint_access_user_buf");
   pkt->ether.h_proto = bpf_htons(ETH_P_IP);
   pkt->ipv4.version = 4;
   pkt->ipv4.ihl = sizeof(struct iphdr) / 4;

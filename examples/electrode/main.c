@@ -106,7 +106,7 @@ int main()
 
     // verify ingress
     struct pkt *pkt = malloc(sizeof(struct pkt));
-    klee_make_symbolic(pkt, sizeof(struct pkt), "user_pkt");
+    klee_make_symbolic(pkt, sizeof(struct pkt), "constraint_access_user_pkt");
     pkt->ether.h_proto = htons(ETH_P_IP);
 	struct xdp_md test_ingress;
 	test_ingress.data = (long)(&(pkt->ether));

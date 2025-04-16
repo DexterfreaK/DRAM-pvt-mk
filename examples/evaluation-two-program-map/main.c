@@ -32,7 +32,7 @@ int main(int argc, char** argv) {
   BPF_MAP_INIT(&array_map, "array_map", "", "");
   BPF_MAP_INIT(&hash_map, "hash_map", "", "");
 	struct pkt *pkt = malloc(sizeof(struct pkt));
-	klee_make_symbolic(pkt, sizeof(struct pkt), "user_pkt");
+	klee_make_symbolic(pkt, sizeof(struct pkt), "constraint_access_user_pkt");
 	struct xdp_md test;
   test.data = (long)(&(pkt->ether));
   test.data_end = (long)(pkt + 1);

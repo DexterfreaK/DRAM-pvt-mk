@@ -125,7 +125,7 @@ int main(int argc, char **argv) {
   BPF_MAP_INIT(&ipfix_probe_map, "ipfix_probe_map", "", "");
   
   struct pkt *pkt = malloc(sizeof(struct pkt));
-  klee_make_symbolic(pkt, sizeof(struct pkt), "packet");
+  klee_make_symbolic(pkt, sizeof(struct pkt), "constraint_access_packet");
 
   struct xdp_md test;
   test.data = (long)(&(pkt->ether));

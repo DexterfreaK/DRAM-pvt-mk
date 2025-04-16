@@ -125,7 +125,7 @@ int set_up_maps() {
 
 int main() {
 	struct pkt *pkt = malloc(sizeof(struct pkt));
-    klee_make_symbolic(pkt, sizeof(struct pkt), "user_pkt");
+    klee_make_symbolic(pkt, sizeof(struct pkt), "constraint_access_user_pkt");
     pkt->ether.h_proto = htons(ETH_P_IP);
 	struct xdp_md ctx;
 	ctx.data = (long)(&(pkt->ether));

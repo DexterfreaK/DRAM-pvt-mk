@@ -35,7 +35,7 @@ int main(int argc, char** argv) {
   BPF_MAP_INIT(&inner2outer, "inner2outer", "", "");
   BPF_MAP_INIT(&outer2inner, "outer2inner", "", "");
 	struct pkt *pkt = malloc(sizeof(struct pkt));
-	klee_make_symbolic(pkt, sizeof(struct pkt), "user_pkt");
+	klee_make_symbolic(pkt, sizeof(struct pkt), "constraint_access_user_pkt");
 	pkt->ether.h_proto = bpf_htons(ETH_P_IP);
 	struct xdp_md test;
   test.data = (long)(&(pkt->ether));

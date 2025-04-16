@@ -289,7 +289,7 @@ int main(int argc, char **argv) {
 
   /* Step 3: Making input struct xdp_md symbolic */
   struct crab_pkt *pkt = malloc(sizeof(struct crab_pkt));
-  klee_make_symbolic(pkt, sizeof(struct crab_pkt), "lb_pkt");
+  klee_make_symbolic(pkt, sizeof(struct crab_pkt), "constraint_access_lb_pkt");
   pkt->ether.h_proto = bpf_htons(ETH_P_IP);
   pkt->ipv4.version = 4;
   pkt->ipv4.ihl = sizeof(struct iphdr) / 4;

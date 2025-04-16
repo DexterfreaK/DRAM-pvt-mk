@@ -68,7 +68,7 @@ int main(int argc, char** argv) {
 	// 	return XDP_DROP;
 
 	struct pkt *pkt = malloc(sizeof(struct pkt));
-	klee_make_symbolic(pkt, sizeof(struct pkt), "user_pkt");
+	klee_make_symbolic(pkt, sizeof(struct pkt), "constraint_access_user_pkt");
 	pkt->ether.h_proto = bpf_htons(ETH_P_IP);
 	// pkt->ipv4.saddr = key;
 	// assume_map_does_not_contain_key(&sourceAddressInfo, &pkt->ipv4.saddr);

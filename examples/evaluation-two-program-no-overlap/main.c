@@ -27,7 +27,7 @@ Program to show map interactions
 int main(int argc, char** argv) {
   BPF_MAP_INIT(&macs, "macs", "", "");
 	struct pkt *pkt = malloc(sizeof(struct pkt));
-	klee_make_symbolic(pkt, sizeof(struct pkt), "user_pkt");
+	klee_make_symbolic(pkt, sizeof(struct pkt), "constraint_access_user_pkt");
 	struct xdp_md test;
   test.data = (long)(&(pkt->ether));
   test.data_end = (long)(pkt + 1);
