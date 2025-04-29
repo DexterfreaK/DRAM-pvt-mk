@@ -306,7 +306,7 @@ symbex-cve:
 		-fno-builtin \
 		-O0 -emit-llvm -c -g $(XDP_C)
 	llvm-dis -show-annotations $(XDP_TARGETS).bc
-	sudo /home/jainil/Draco/DRACO-verifier/klee/build/bin/klee -kdalloc -kdalloc-heap-start-address=0x00040000000 -kdalloc-heap-size=1 -libc=uclibc --external-calls=all --disable-verify \
+	sudo time -v /home/jainil/Draco/DRACO-verifier/klee/build/bin/klee -kdalloc -kdalloc-heap-start-address=0x00040000000 -kdalloc-heap-size=1 -libc=uclibc --external-calls=all --disable-verify \
 		-solver-backend=z3 --exit-on-error -max-memory=750000 -search=dfs -single-object-resolution=true -link-llvm-lib=/home/jainil/Draco/DRACO-verifier/ebpf-se/libbpf-stubbed/src/obj/libbpf.bc \
 		-verification=true $(XDP_TARGETS).bc
 
