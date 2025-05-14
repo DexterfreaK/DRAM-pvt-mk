@@ -1,0 +1,5 @@
+Read map_configure
+ReadWrite map_ctr_state
+ReadWrite map_msg_lastOp
+ReadWrite map_quorum
+ReadWrite batch_context

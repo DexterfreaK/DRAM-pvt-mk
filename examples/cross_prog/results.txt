@@ -1,0 +1,63 @@
+    FAST_REPLY
+
+KLEE: done: total instructions = 8884
+KLEE: done: completed paths = 21
+KLEE: done: partially completed paths = 0
+KLEE: done: generated tests = 21
+Map Access control : VALID
+        Command being timed: "klee -kdalloc -kdalloc-heap-start-address=0x00040000000 -kdalloc-heap-size=1 -libc=uclibc --external-calls=all --disable-verify -solver-backend=z3 -silent-klee-assume=true --exit-on-error -max-memory=750000 -search=dfs -single-object-resolution=true -verification=true -read-set=true -write-set=true -map-correlation=true main.bc"
+        User time (seconds): 0.36
+        System time (seconds): 0.02
+        Percent of CPU this job got: 99%
+        Elapsed (wall clock) time (h:mm:ss or m:ss): 0:00.39
+        Average shared text size (kbytes): 0
+        Average unshared data size (kbytes): 0
+        Average stack size (kbytes): 0
+        Average total size (kbytes): 0
+        Maximum resident set size (kbytes): 105268
+        Average resident set size (kbytes): 0
+        Major (requiring I/O) page faults: 3
+        Minor (reclaiming a frame) page faults: 14504
+        Voluntary context switches: 4
+        Involuntary context switches: 10
+        Swaps: 0
+        File system inputs: 456
+        File system outputs: 2072
+        Socket messages sent: 0
+        Socket messages received: 0
+        Signals delivered: 0
+        Page size (bytes): 4096
+        Exit status: 0
+
+
+
+    FAST_QUORUM_PRUNE
+
+KLEE: done: total instructions = 13629
+KLEE: done: completed paths = 86
+KLEE: done: partially completed paths = 0
+KLEE: done: generated tests = 86
+Map Access control : VALID
+        Command being timed: "klee -kdalloc -kdalloc-heap-start-address=0x00040000000 -kdalloc-heap-size=1 -libc=uclibc --external-calls=all --disable-verify -solver-backend=z3 -silent-klee-assume=true --exit-on-error -max-memory=750000 -search=dfs -single-object-resolution=true -verification=true -read-set=true -write-set=true -map-correlation=true main.bc"
+        User time (seconds): 206.56
+        System time (seconds): 0.09
+        Percent of CPU this job got: 99%
+        Elapsed (wall clock) time (h:mm:ss or m:ss): 3:26.67
+        Average shared text size (kbytes): 0
+        Average unshared data size (kbytes): 0
+        Average stack size (kbytes): 0
+        Average total size (kbytes): 0
+        Maximum resident set size (kbytes): 305132
+        Average resident set size (kbytes): 0
+        Major (requiring I/O) page faults: 2
+        Minor (reclaiming a frame) page faults: 67986
+        Voluntary context switches: 3
+        Involuntary context switches: 1361
+        Swaps: 0
+        File system inputs: 424
+        File system outputs: 10432
+        Socket messages sent: 0
+        Socket messages received: 0
+        Signals delivered: 0
+        Page size (bytes): 4096
+        Exit status: 0

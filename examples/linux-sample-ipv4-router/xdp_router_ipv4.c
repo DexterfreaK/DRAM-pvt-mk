@@ -243,7 +243,26 @@ char _license[] SEC("license") = "GPL";
 
 int main() {
 
+    // init maps
+	// BPF_MAP_INIT(&packet_stats, "packet_stats", "", "");
+	BPF_MAP_INIT(&read_write, "read_write", "", "");
+	BPF_MAP_INIT(&no_access, "no_access", "", "");
+	BPF_MAP_INIT(&write_only, "write_only", "", "");
 
+	// init the ctx
+	struct pkt *pkt = malloc(sizeof(struct pkt));
+	klee_make_symbolic(pkt, sizeof(struct pkt), "constraint_access_user_pkt");
+	pkt->ether.h_proto = htons(ETH_P_IP);
+	struct xdp_md test;
+	test.data = (long)(&(pkt->ether));
+	test.data_end = (long)(pkt + 1);
+	test.data_meta = 0;
+	test.ingress_ifindex = 0;
+
+	// execute
+	__start_verification();
+	xdp_main(&test);
+	return 0;
 
     return 0;
 }
