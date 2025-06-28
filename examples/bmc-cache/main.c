@@ -69,7 +69,7 @@ int main()
 	test_ingress.ingress_ifindex = 0;
 
     __start_verification();
-    bmc_rx_filter_main(&test_ingress);
+    bmc_hash_keys_main(&test_ingress);
 
     // // verify egress
     // struct __sk_buff *skb = malloc(sizeof(struct __sk_buff));

@@ -167,9 +167,9 @@ int main()
     map_progs_xdp[4] = PrepareFastReply_main;
 
     __start_verification();
-    balancer_ingress(&test);
+    balancer_ingress(&test); // katran
     __separate();
-    fastPaxos_main(&test);
+    fastPaxos_main(&test); // electrode
 
 
     // // verify egress
