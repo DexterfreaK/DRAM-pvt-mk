@@ -356,8 +356,8 @@ verify-constraint-access: $(XDP_C) Makefile $(KERN_USER_H) $(EXTRA_DEPS)
 	taskset -c 6 /usr/bin/time -v \
 		klee -kdalloc -kdalloc-heap-start-address=0x00040000000 -kdalloc-heap-size=1 -libc=uclibc --external-calls=all --disable-verify \
 		-solver-backend=z3 -silent-klee-assume=true --exit-on-error -max-memory=750000 -search=dfs -single-object-resolution=true \
-		-verification=true -read-set=true -write-set=true -map-correlation=true -restrict-helper-function=true -helper-function-restriction-rules="$(PWD)/hFuncAccessList" -map-access-control-file="$(PWD)/mapAccessList"  \
-		-enable-packet-constr=true -packet-constraint-file="$(PWD)/packetAccess" $(XDP_TARGETS).bc
+		-verification=true -read-set=true -write-set=true -map-correlation=true -restrict-helper-function=true -enable-map-access-control=true  \
+		-enable-packet-constr=true -packet-constraint-file="$(PWD)/packetAccess" -config-file="$(PWD)/demo.json" $(XDP_TARGETS).bc
 
 run-klee: $(XDP_C) Makefile $(KERN_USER_H) $(EXTRA_DEPS)
 	$(CLANG) \
