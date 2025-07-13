@@ -41,6 +41,33 @@ XDP_CFLAGS = -I $(XDP_PATH)
 # BPF_CFLAGS ?= -I$(LIBBPF_DIR)/build/usr/include/ -I$(current_dir)/../headers/
 # BPF_CFLAGS += -I /usr/include/$(UNAME_P)-linux-gnu
 
+verify-constraint-access: $(XDP_C) Makefile $(KERN_USER_H) $(EXTRA_DEPS)
+	$(CLANG) \
+		-target bpf \
+		-DKLEE_VERIFICATION\
+		-DVERIFY_INTERACTIONS\
+		$(KLEE_BPF_CFLAGS) \
+		-I $(KLEE_INCLUDE) \
+		-D__USE_VMLINUX__ \
+		-D__TARGET_ARCH_x86 \
+		-DBPF_NO_PRESERVE_ACCESS_INDEX \
+		-Wall \
+		-Wno-unused-value \
+		-Wno-unused-variable \
+		-Wno-pointer-sign \
+		-Wno-compare-distinct-pointer-types \
+		-Werror \
+		-fno-discard-value-names \
+		-fno-builtin \
+		-O0 -emit-llvm -c -g $(XDP_C)
+	# $(LLC) -march=bpf -filetype=obj -o $@ ${@:.o=.ll}
+	llvm-dis -show-annotations $(XDP_TARGETS).bc
+	taskset -c 6 /usr/bin/time -v \
+		klee -kdalloc -kdalloc-heap-start-address=0x00040000000 -kdalloc-heap-size=1 -libc=uclibc --external-calls=all --disable-verify \
+		-solver-backend=z3 -silent-klee-assume=true --exit-on-error -max-memory=750000 -search=dfs -single-object-resolution=true \
+		-verification=true -read-set=true -write-set=true -map-correlation=true -restrict-helper-function=true -enable-map-access-control=true  \
+		-enable-packet-constr=true -config-file="$(PWD)/constraints.json" $(XDP_TARGETS).bc
+
 ifeq ($(REPLAY), 1)
 	BPF_CFLAGS += -DREPLAY
 endif
@@ -357,7 +384,7 @@ verify-constraint-access: $(XDP_C) Makefile $(KERN_USER_H) $(EXTRA_DEPS)
 		klee -kdalloc -kdalloc-heap-start-address=0x00040000000 -kdalloc-heap-size=1 -libc=uclibc --external-calls=all --disable-verify \
 		-solver-backend=z3 -silent-klee-assume=true --exit-on-error -max-memory=750000 -search=dfs -single-object-resolution=true \
 		-verification=true -read-set=true -write-set=true -map-correlation=true -restrict-helper-function=true -enable-map-access-control=true  \
-		-enable-packet-constr=true -packet-constraint-file="$(PWD)/packetAccess" -config-file="$(PWD)/demo.json" $(XDP_TARGETS).bc
+		-enable-packet-constr=true -config-file="$(PWD)/constraints.json" $(XDP_TARGETS).bc
 
 run-klee: $(XDP_C) Makefile $(KERN_USER_H) $(EXTRA_DEPS)
 	$(CLANG) \

@@ -1,0 +1,12 @@
+Daemon :
+--------
+
+1. Object code
+  * object code file -> .o file input + json input
+  * change the working directory
+  * make temp working dir and do the the processing and process result
+2. Source code
+  * Take input path to code directory
+  * make it the working directory
+  * run commands and process output over there
+

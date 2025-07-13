@@ -1,0 +1,23 @@
+{
+    "helper_func": [],
+    "map_access": [
+        {
+            "name": "ipfix_probe_map",
+            "access": "ReadWrite"
+        }
+    ],
+    "packet_constraints": [
+        {
+            "sPort": "*",
+            "dPort": "*",
+            "sIP": "*",
+            "dIP": "*",
+            "read-access": [
+                "0-222"
+            ],
+            "write-access": [
+                "x"
+            ]
+        }
+    ]
+}
