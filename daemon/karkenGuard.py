@@ -115,6 +115,7 @@ def handle_source(temp_dir, file_name, conn):
 def handle_object(temp_dir, file_name, conn):
     try:
         object_file = os.path.join(temp_dir, file_name)
+        json_file = os.path.join(temp_dir, "constraints.json")
         if not os.path.exists(object_file):
             conn.sendall(b"ERROR: main.o not found\n")
             return
@@ -127,21 +128,20 @@ def handle_object(temp_dir, file_name, conn):
             conn.sendall(b"ERROR: generateIR.py failed\n" + result.stderr.encode())
             return
 
-        bc_file = os.path.join(temp_dir, "main.bc")
+        bc_file = os.path.join(temp_dir, "final_linked_ir.bc")
         print(f"DEBUG: Running llvm-dis on {bc_file}")
         subprocess.run(["llvm-dis", "-show-annotations", bc_file], check=False)
 
         klee_cmd = [
-            "klee", "-kdalloc", "-kdalloc-heap-start-address=0x00040000000",
-            "-kdalloc-heap-size=1", "-libc=uclibc", "--external-calls=all",
-            "--disable-verify", "-solver-backend=z3", "--exit-on-error",
+            "taskset", "-c", "6", "klee", "-kdalloc",
+            "-kdalloc-heap-start-address=0x00040000000", "-kdalloc-heap-size=1",
+            "-libc=uclibc", "--external-calls=all", "--disable-verify",
+            "-solver-backend=z3", "-silent-klee-assume=true", "--exit-on-error",
             "-max-memory=750000", "-search=dfs", "-single-object-resolution=true",
             "-verification=true", "-read-set=true", "-write-set=true",
-            "-map-correlation=true", "-read-write-two-phase=true",
-            "-restrict-helper-function=true",
-            f"-helper-function-restriction-rules={temp_dir}/hFuncAccessList",
-            f"-map-access-control-file={temp_dir}/mapAccessList",
-            bc_file
+            "-map-correlation=true", "-restrict-helper-function=true",
+            "-enable-map-access-control=true", "-enable-packet-constr=true",
+            f"-config-file={json_file}", bc_file
         ]
 
         print("DEBUG: Running KLEE:", " ".join(klee_cmd))

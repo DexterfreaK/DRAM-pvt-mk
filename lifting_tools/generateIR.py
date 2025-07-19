@@ -12,6 +12,8 @@ from elftools.elf.relocation import RelocationSection
 from jinja2 import Environment, FileSystemLoader
 import yaml
 
+KLEE_BPF_CFLAGS = "-I/home/jainil/Draco/DRACO-verifier/examples/headers/ -I/usr/include/x86_64-linux-gnu -I/home/jainil/Draco/DRACO-verifier/ebpf-se/libbpf-stubbed/src/build/usr/include/"
+
 object_file = sys.argv[1]
 prog_name   = os.path.basename(object_file)
 if not os.path.exists(object_file):
@@ -125,6 +127,24 @@ generate_code(config=config,template_path=template_path,output_path=gen_cpp_path
 ##### Step-5 compile template
 try:
     result = subprocess.run(["make", "compile-template", f"input_file={gen_cpp_path}", f"output_file={gen_cpp_path}"])
+    if result.returncode != 0:
+        clang_cmd = [
+            "clang-13", "-target", "bpf", "-DKLEE_VERIFICATION", "-DVERIFY_INTERACTIONS"
+        ] + KLEE_BPF_CFLAGS.strip().split() + [
+            "-I", os.environ["KLEE_INCLUDE"],
+            "-D__USE_VMLINUX__", "-D__TARGET_ARCH_x86",
+            "-DBPF_NO_PRESERVE_ACCESS_INDEX", "-Wall",
+            "-Wno-unused-value", "-Wno-unused-variable",
+            "-Wno-pointer-sign", "-Wno-compare-distinct-pointer-types",
+            "-Werror", "-fno-discard-value-names", "-fno-builtin",
+            "-O0", "-emit-llvm", "-c", "-g", gen_cpp_path,
+            "-o", gen_cpp_path
+        ]
+        result = subprocess.run(clang_cmd, capture_output=True, text=True)
+        if result.returncode != 0:
+            print("DEBUG: clang stderr:", result.stderr)
+            print("ERROR: clang compilation failed for template generation\n")
+            exit(1)
 except Exception as e:
     print("error in compiling template : ", e)
     exit(1)

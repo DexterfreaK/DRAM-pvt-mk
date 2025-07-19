@@ -1,0 +1,42 @@
+{
+    "helper_func": [
+        "bpf_map_update_elem"
+    ],
+    "map_access": [
+        {
+            "name": "map_configure",
+            "access": "Read"
+        },
+        {
+            "name": "map_ctr_state",
+            "access": "ReadWrite"
+        },
+        {
+            "name": "map_msg_lastOp",
+            "access": "ReadWrite"
+        },
+        {
+            "name": "map_quorum",
+            "access": "ReadWrite"
+        },
+        {
+            "name": "batch_context",
+            "access": "ReadWrite"
+        }
+    ],
+    "packet_constraints": [
+        {
+            "sPort": "*",
+            "dPort": "14640",
+            "sIP": "*",
+            "dIP": "*",
+            "read-access": [
+                "0-118"
+            ],
+            "write-access": [
+                "0-118"
+            ]
+        }
+    ]
+}
+

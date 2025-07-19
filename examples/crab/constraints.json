@@ -1,0 +1,35 @@
+{
+    "helper_func": [],
+    "map_access": [
+        {
+            "name": "targets_map",
+            "access": "Read"
+        },
+        {
+            "name": "macs_map",
+            "access": "Read"
+        },
+        {
+            "name": "targets_count",
+            "access": "Read"
+        },
+        {
+            "name": "cpu_rr_idx",
+            "access": "ReadWrite"
+        }
+    ],
+    "packet_constraints": [
+        {
+            "sPort": "*",
+            "dPort": "*",
+            "sIP": "*",
+            "dIP": "*",
+            "read-access": [
+                "0-1554"
+            ],
+            "write-access": [
+                "0-1500"
+            ]
+        }
+    ]
+}

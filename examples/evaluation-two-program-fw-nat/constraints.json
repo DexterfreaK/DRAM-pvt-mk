@@ -1,0 +1,34 @@
+{
+    "helper_func": [
+        "bpf_ringbuf_reserve"
+    ],
+    "map_access": [
+        {
+            "name": "whitelist_addresses",
+            "access": "Read"
+        },
+        {
+            "name": "inner2outer",
+            "access": "Read"
+        },
+        {
+            "name": "outer2inner",
+            "access": "Read"
+        }
+    ],
+    "packet_constraints": [
+        {
+            "sPort": "*",
+            "dPort": "*",
+            "sIP": "*",
+            "dIP": "*",
+            "read-access": [
+                "0-54"
+            ],
+            "write-access": [
+                "24-30"
+            ]
+        }
+    ]
+}
+

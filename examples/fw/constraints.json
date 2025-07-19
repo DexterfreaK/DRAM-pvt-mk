@@ -1,0 +1,28 @@
+{
+    "helper_func": [],
+    "map_access": [
+        {
+            "name": "tx_port",
+            "access": "Read"
+        },
+        {
+            "name": "flow_ctx_table",
+            "access": "ReadWrite"
+        }
+    ],
+    "packet_constraints": [
+        {
+            "sPort": "*",
+            "dPort": "*",
+            "sIP": "*",
+            "dIP": "*",
+            "read-access": [
+                "0-54"
+            ],
+            "write-access": [
+                "x"
+            ]
+        }
+    ]
+}
+

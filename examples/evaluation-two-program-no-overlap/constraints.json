@@ -1,0 +1,24 @@
+{
+    "helper_func": [],
+    "map_access": [
+        {
+            "name": "macs",
+            "access": "ReadWrite"
+        }
+    ],
+    "packet_constraints": [
+        {
+            "sPort": "*",
+            "dPort": "*",
+            "sIP": "*",
+            "dIP": "*",
+            "read-access": [
+                "0-54"
+            ],
+            "write-access": [
+                "0-14"
+            ]
+        }
+    ]
+}
+
