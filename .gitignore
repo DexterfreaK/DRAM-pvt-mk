@@ -6,3 +6,4 @@ klee-last
 paths.sh
 *build/
 *.o
+*.venv

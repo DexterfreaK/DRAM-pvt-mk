@@ -104,7 +104,8 @@ package_install()
 # XXX: Make the package manager depend on "$OS".
 package_sync()
 {
-	sudo apt-get update -qq
+	echo "hehe"
+	#sudo apt-get update -qq
 }
 
 # Print script usage.
@@ -186,7 +187,7 @@ clean_z3()
 bin_install_llvm()
 {
 	# package_install clang-$LLVM_RELEASE llvm-$LLVM_RELEASE llvm-$LLVM_RELEASE-dev llvm-$LLVM_RELEASE-tools
-	PATH_TO_BIN=/usr/bin
+	PATH_TO_BIN=/usr/local/bin
 	echo "Installed"
 }
 
@@ -245,7 +246,7 @@ source_install_klee_func_ver()
 								-DENABLE_KLEE_UCLIBC=ON \
 								-DKLEE_UCLIBC_PATH="$BUILDDIR/klee-uclibc" \
 								-DENABLE_POSIX_RUNTIME=ON \
-								-DCMAKE_BUILD_TYPE=Debug \
+								-DCMAKE_BUILD_TYPE=Release \
 								-DENABLE_KLEE_ASSERTS=ON \
 								-DENABLE_DOXYGEN=ON \
 								..
@@ -264,6 +265,10 @@ source_install_bpf_lifter()
 	cd "$CURRENTDIR"/bpf_lifter
 	mkdir -p build
 	cd build
+	# cmake -DCMAKE_BUILD_TYPE=Debug \
+    #   -DCMAKE_C_FLAGS="-fsanitize=address -fno-omit-frame-pointer" \
+    #   -DCMAKE_CXX_FLAGS="-fsanitize=address -fno-omit-frame-pointer" ..
+	# cmake -DCMAKE_BUILD_TYPE=Debug ..
 	cmake ..
 	make -j$(nproc)
 
@@ -282,11 +287,15 @@ source_build_llvm_pass()
 	cd "$CURRENTDIR"/lifting_tools/llvm_func_pass
 	mkdir -p build
 	cd build
+	# cmake ..
+	cmake -DCMAKE_BUILD_TYPE=Debug ..
 	make
 
 	cd "$CURRENTDIR"/lifting_tools/llvm_ext_sym_pass
 	mkdir -p build
 	cd build
+	# cmake ..
+	cmake -DCMAKE_BUILD_TYPE=Debug ..
 	make
 
 	# export path to .so files for pass

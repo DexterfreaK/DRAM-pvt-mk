@@ -104,7 +104,6 @@ int xdp_prog(struct xdp_md *ctx)
         if (!value)
             return XDP_PASS;
     }
-    (*value)++;
 
     return XDP_PASS;
 }

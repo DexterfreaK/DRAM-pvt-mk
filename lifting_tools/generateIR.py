@@ -12,7 +12,7 @@ from elftools.elf.relocation import RelocationSection
 from jinja2 import Environment, FileSystemLoader
 import yaml
 
-KLEE_BPF_CFLAGS = "-I/home/jainil/Draco/DRACO-verifier/examples/headers/ -I/usr/include/x86_64-linux-gnu -I/home/jainil/Draco/DRACO-verifier/ebpf-se/libbpf-stubbed/src/build/usr/include/"
+KLEE_BPF_CFLAGS = "-I/home/anakin/DRACO-pvt/examples/headers/ -I/usr/include/x86_64-linux-gnu -I/home/anakin/DRACO-pvt/ebpf-se/libbpf-stubbed/src/build/usr/include/"
 
 object_file = sys.argv[1]
 prog_name   = os.path.basename(object_file)
@@ -120,7 +120,7 @@ config = generate_config(temp_dir)
 gen_cpp_path = os.path.join(temp_dir, "cpp_generated_code.c")
 print(config)
 # TODO: update
-template_path = "/home/jainil/Draco/DRACO-verifier/lifting_tools"
+template_path = "/home/anakin/DRACO-pvt/lifting_tools"
 generate_code(config=config,template_path=template_path,output_path=gen_cpp_path)
 
 
