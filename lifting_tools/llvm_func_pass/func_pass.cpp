@@ -117,6 +117,8 @@ private:
         for (const auto &entry : mapIdToName) {
             int mapId = entry.first;
             std::string mapName = entry.second;
+            
+            std::cout << "map name : " << mapName << ",, mapId : " << mapId << std::endl;
 
             // Create external global variable (no initializer)
             GlobalVariable *gv = new GlobalVariable(

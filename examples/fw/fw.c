@@ -1,5 +1,8 @@
 /* Driver for klee verification */
+#ifdef KLEE_VERIFICATION
 #include "klee/klee.h"
+#endif
+
 #include <stdlib.h>
 
 #ifndef USES_BPF_MAPS
@@ -14,12 +17,13 @@
 #define USES_BPF_MAP_UPDATE_ELEM
 #endif
 
-#ifndef USES_BPF_REDIRECT_MAP
-#define USES_BPF_REDIRECT_MAP
-#endif
+// #ifndef USES_BPF_REDIRECT_MAP
+// #define USES_BPF_REDIRECT_MAP
+// #endif
 
 #include "xdp_fw_kern.h"
 
+#ifdef KLEE_VERIFICATION
 struct __attribute__((__packed__)) pkt {
   struct ethhdr ether;
   struct iphdr ipv4;
@@ -72,3 +76,5 @@ int main(int argc, char** argv){
     return 1;
   return 0;
 }
+
+#endif

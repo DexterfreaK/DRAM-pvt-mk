@@ -46,6 +46,7 @@ static inline void biflow(struct flow_ctx_table_key *flow_key){
 
 }
 
+#ifdef KLEE_VERIFICATION
 struct bpf_map_def SEC("maps") tx_port = {
 	.type = BPF_MAP_TYPE_DEVMAP,
 	.key_size = sizeof(int),
@@ -59,9 +60,24 @@ struct bpf_map_def SEC("maps") flow_ctx_table = {
 	.value_size = sizeof(struct flow_ctx_table_leaf),
 	.max_entries = 1024,
 };
+#else
+struct
+{
+    __uint(type, BPF_MAP_TYPE_DEVMAP);
+    __uint(max_entries, 10);
+    __type(key, int);
+    __type(value, int);
+} tx_port SEC(".maps");
+struct
+{
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __uint(max_entries, 1024);
+    __type(key, struct flow_ctx_table_key);
+    __type(value, struct flow_ctx_table_leaf);
+} flow_ctx_table SEC(".maps");
+#endif
 
-
-SEC("xdp_fw")
+SEC("xdp")
 int xdp_fw_prog(struct xdp_md *ctx)
 {
 	
@@ -77,11 +93,11 @@ int xdp_fw_prog(struct xdp_md *ctx)
 	struct udphdr      *l4;
 
 	int ingress_ifindex;
-	uint64_t nh_off = 0;
+	__u32 nh_off = 0;
 	/*  remember, to see printk 
 	 * sudo cat /sys/kernel/debug/tracing/trace_pipe
 	 */
-	bpf_debug("I'm in the pipeline\n");
+	// bpf_debug("I'm in the pipeline\n");
 
 
 	ethernet = data ;
@@ -92,11 +108,11 @@ int xdp_fw_prog(struct xdp_md *ctx)
 	
 	ingress_ifindex = ctx->ingress_ifindex;
 	
-	bpf_debug("I'm eth\n");
+	// bpf_debug("I'm eth\n");
 	if(ethernet->h_proto != BE_ETH_P_IP)
 		goto EOP;
 
-	bpf_debug("I'm ip\n");
+	// bpf_debug("I'm ip\n");
 	
 	ip = data + nh_off;
 	nh_off +=sizeof(*ip);
@@ -115,13 +131,13 @@ int xdp_fw_prog(struct xdp_md *ctx)
 
 	
 	L4:
-	bpf_debug("I'm l4\n");
+	// bpf_debug("I'm l4\n");
 	l4 = data + nh_off;
 	nh_off +=sizeof(*l4);
 	if (data + nh_off  > data_end)
 		goto EOP;
 
-	bpf_debug("extracting flow key ... \n");
+	// bpf_debug("extracting flow key ... \n");
 	/* flow key */
 	flow_key.ip_proto = ip->protocol;
 
@@ -135,8 +151,10 @@ int xdp_fw_prog(struct xdp_md *ctx)
 	if (ingress_ifindex == B_PORT) {
 		flow_leaf = bpf_map_lookup_elem(&flow_ctx_table, &flow_key);
 			
-		if (flow_leaf)
-			return bpf_redirect_map(&tx_port,flow_leaf->out_port, 0);
+		if (flow_leaf){
+			// return bpf_redirect_map(&tx_port,flow_leaf->out_port, 0);
+			return 0;
+		}
 		else 
 			return XDP_DROP;
 	} else {
@@ -148,7 +166,8 @@ int xdp_fw_prog(struct xdp_md *ctx)
 			bpf_map_update_elem(&flow_ctx_table, &flow_key, &new_flow, BPF_ANY);
 		}
 		
-		return bpf_redirect_map(&tx_port, B_PORT, 0);
+		// return bpf_redirect_map(&tx_port, B_PORT, 0);
+		return 0;
 	}
 
 

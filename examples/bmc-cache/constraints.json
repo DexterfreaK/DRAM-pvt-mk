@@ -1,0 +1,39 @@
+{
+    "helper_func": [],
+    "map_access": [
+        {
+            "name": "map_kcache",
+            "access": "ReadWrite"
+        },
+        
+        {
+            "name": "map_keys",
+            "access": "ReadWrite"
+        },
+        
+        {
+            "name": "map_parsing_context",
+            "access": "ReadWrite"
+        },
+        
+        {
+            "name": "map_stats",
+            "access": "ReadWrite"
+        }
+        
+    ],
+    "packet_constraints": [
+        {
+            "sPort": "*",
+            "dPort": "*",
+            "sIP": "*",
+            "dIP": "*",
+            "read-access": [
+                "0-1554"
+            ],
+            "write-access": [
+                "0-1554"
+            ]
+        }
+    ]
+}

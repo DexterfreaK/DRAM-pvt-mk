@@ -119,7 +119,7 @@ static inline __u16 compute_ip_checksum(struct iphdr *ip)
 }
 
 SEC("bmc_rx_filter")
-int bmc_rx_filter_main(struct xdp_md *ctx)
+int bmc_rx_filter_main(struct xdp_md *ctx) // safe
 {
 	void *data_end = (void *)(long)ctx->data_end;
 	void *data = (void *)(long)ctx->data;
@@ -180,13 +180,13 @@ int bmc_rx_filter_main(struct xdp_md *ctx)
 					return XDP_PASS;
 				}
 				// bpf_tail_call_static(ctx, &map_progs_xdp, BMC_PROG_XDP_HASH_KEYS);
-				map_progs_xdp[BMC_PROG_XDP_HASH_KEYS](ctx);
+				// map_progs_xdp[BMC_PROG_XDP_HASH_KEYS](ctx);
 				return 0;
 			}
 		}
 		else if (ip->protocol == IPPROTO_TCP) {
 			// bpf_tail_call_static(ctx, &map_progs_xdp, BMC_PROG_XDP_INVALIDATE_CACHE);
-			map_progs_xdp[BMC_PROG_XDP_INVALIDATE_CACHE](ctx);
+			// map_progs_xdp[BMC_PROG_XDP_INVALIDATE_CACHE](ctx);
 			return 0;
 		}
 	}
@@ -196,9 +196,8 @@ int bmc_rx_filter_main(struct xdp_md *ctx)
 
 
 SEC("bmc_hash_keys")
-int bmc_hash_keys_main(struct xdp_md *ctx)
+int bmc_hash_keys_main(struct xdp_md *ctx) // issue
 {
-	printf("hashing \n");
 	void *data_end = (void *)(long)ctx->data_end;
 	void *data = (void *)(long)ctx->data;
 	char *payload = (char *) data;
@@ -218,13 +217,14 @@ int bmc_hash_keys_main(struct xdp_md *ctx)
 	}
 	key->hash = FNV_OFFSET_BASIS_32;
 
-	unsigned int off, done_parsing = 0, key_len = 0;
+	unsigned int off, key_len = 0;
 
+	// ---------------- Critical -----------------------
 	// compute the key hash
 #pragma clang loop unroll(disable)
 	for (off = 0; off < BMC_MAX_KEY_LENGTH+1 && payload+off+1 <= data_end; off++) {
 		if (payload[off] == '\r') {
-			done_parsing = 1;
+			// done_parsing = 1;
 			break;
 		}
 		else if (payload[off] == ' ') {
@@ -237,58 +237,66 @@ int bmc_hash_keys_main(struct xdp_md *ctx)
 		}
 	}
 
-	if (key_len == 0 || key_len > BMC_MAX_KEY_LENGTH) {
-		bpf_xdp_adjust_head(ctx, 0 - (sizeof(struct ethhdr) + sizeof(struct iphdr) + sizeof(struct udphdr) + sizeof(struct memcached_udp_header) + pctx->read_pkt_offset)); // unexpected key, let the netstack handle it
-		return XDP_PASS;
-	}
+	// if (key_len == 0 || key_len > BMC_MAX_KEY_LENGTH) {
+	// 	bpf_xdp_adjust_head(ctx, 0 - (sizeof(struct ethhdr) + sizeof(struct iphdr) + sizeof(struct udphdr) + sizeof(struct memcached_udp_header) + pctx->read_pkt_offset)); // unexpected key, let the netstack handle it
+	// 	return XDP_PASS;
+	// }
 
 	__u32 cache_idx = key->hash % BMC_CACHE_ENTRY_COUNT;
 	struct bmc_cache_entry *entry = bpf_map_lookup_elem(&map_kcache, &cache_idx);
-	if (!entry) { // should never happen since cache map is of type BPF_MAP_TYPE_ARRAY
-		return XDP_PASS;
-	}
+	// if (!entry) { // should never happen since cache map is of type BPF_MAP_TYPE_ARRAY
+	// 	return XDP_PASS;
+	// }
+
+	
+	printf("hashing \n");
+
+	// return cache_idx;
+
+	// ---------------- Critical -----------------------
 
 	// bpf_spin_lock(&entry->lock);
 	if (entry->valid && entry->hash == key->hash) { // potential cache hit
 		// bpf_spin_unlock(&entry->lock);
 		unsigned int i = 0;
-#pragma clang loop unroll(disable)
-		for (; i < key_len && payload+i+1 <= data_end; i++) { // copy the request key to compare it with the one stored in the cache later
-			key->data[i] = payload[i];
-		}
+// #pragma clang loop unroll(disable)
+// 		for (; i < key_len && payload+i+1 <= data_end; i++) { // copy the request key to compare it with the one stored in the cache later
+// 			key->data[i] = payload[i];
+// 		}
 		key->len = key_len;
 		pctx->key_count++;
-	} else { // cache miss
-		// bpf_spin_unlock(&entry->lock);
-		struct bmc_stats *stats = bpf_map_lookup_elem(&map_stats, &zero);
-		if (!stats) {
-			return XDP_PASS;
-		}
-		stats->miss_count++;
 	}
+	// else { // cache miss
+	// 	// bpf_spin_unlock(&entry->lock);
+	// 	struct bmc_stats *stats = bpf_map_lookup_elem(&map_stats, &zero);
+	// 	if (!stats) {
+	// 		return XDP_PASS;
+	// 	}
+	// 	stats->miss_count++;
+	// }
 
-	if (done_parsing) { // the end of the request has been reached
-		bpf_xdp_adjust_head(ctx, 0 - (sizeof(struct ethhdr) + sizeof(struct iphdr) + sizeof(struct udphdr) + sizeof(struct memcached_udp_header) + pctx->read_pkt_offset)); // pop headers + 'get ' + previous keys
-		if (pctx->key_count > 0) {
-			// bpf_tail_call_static(ctx, &map_progs_xdp, BMC_PROG_XDP_PREPARE_PACKET);
-			map_progs_xdp[BMC_PROG_XDP_PREPARE_PACKET](ctx);
-			return 0;
-		}
-	} else { // more keys to process
-		off++; // move offset to the start of the next key
-		pctx->read_pkt_offset += off;
-		if (bpf_xdp_adjust_head(ctx, off)) // push the previous key
-			return XDP_PASS;
-		// bpf_tail_call_static(ctx, &map_progs_xdp, BMC_PROG_XDP_HASH_KEYS);
-		map_progs_xdp[BMC_PROG_XDP_HASH_KEYS](ctx);
-		return 0;
-	}
+	// if (done_parsing) { // the end of the request has been reached
+	// 	bpf_xdp_adjust_head(ctx, 0 - (sizeof(struct ethhdr) + sizeof(struct iphdr) + sizeof(struct udphdr) + sizeof(struct memcached_udp_header) + pctx->read_pkt_offset)); // pop headers + 'get ' + previous keys
+	// 	if (pctx->key_count > 0) {
+	// 		// bpf_tail_call_static(ctx, &map_progs_xdp, BMC_PROG_XDP_PREPARE_PACKET);
+	// 		// map_progs_xdp[BMC_PROG_XDP_PREPARE_PACKET](ctx);
+	// 		return 0;
+	// 	}
+	// } else { // more keys to process
+	// 	off++; // move offset to the start of the next key
+	// 	pctx->read_pkt_offset += off;
+	// 	if (bpf_xdp_adjust_head(ctx, off)) // push the previous key
+	// 		return XDP_PASS;
+	// 	// bpf_tail_call_static(ctx, &map_progs_xdp, BMC_PROG_XDP_HASH_KEYS);
+	// 	// map_progs_xdp[BMC_PROG_XDP_HASH_KEYS](ctx);
+	// 	return 0;
+	// }
 
 	return XDP_PASS;
 }
 
 SEC("bmc_prepare_packet")
-int bmc_prepare_packet_main(struct xdp_md *ctx)
+int bmc_prepare_packet_main(struct xdp_md *ctx) // safe
 {
 	if (bpf_xdp_adjust_head(ctx, -ADJUST_HEAD_LEN)) // // pop empty packet buffer memory to increase the available packet size
 		return XDP_PASS;
@@ -329,14 +337,14 @@ int bmc_prepare_packet_main(struct xdp_md *ctx)
 		return XDP_PASS;
 
 	// bpf_tail_call_static(ctx, &map_progs_xdp, BMC_PROG_XDP_WRITE_REPLY);
-	map_progs_xdp[BMC_PROG_XDP_WRITE_REPLY](ctx);
+	// map_progs_xdp[BMC_PROG_XDP_WRITE_REPLY](ctx);
 	return 0;
 
 	return XDP_PASS;
 }
 
 SEC("bmc_write_reply")
-int bmc_write_reply_main(struct xdp_md *ctx)
+int bmc_write_reply_main(struct xdp_md *ctx) // fine for now
 {
 	void *data_end = (void *)(long)ctx->data_end;
 	void *data = (void *)(long)ctx->data;
@@ -428,7 +436,6 @@ int bmc_write_reply_main(struct xdp_md *ctx)
 			udp->len = htons((payload+pctx->write_pkt_offset+written) - (char*)udp);
 
 			bpf_xdp_adjust_tail(ctx, 0 - (int) ((long) data_end - (long) (payload+pctx->write_pkt_offset+written))); // try to strip additional bytes
-
 			return XDP_TX;
 		}
 	} else if (pctx->current_key == pctx->key_count) { // else if all saved keys have been processed but got no cache HIT; either because of a hash colision or a race with a cache update
@@ -440,7 +447,7 @@ int bmc_write_reply_main(struct xdp_md *ctx)
 		if (bpf_xdp_adjust_head(ctx, written)) // push written data
 			return XDP_DROP;
 		// bpf_tail_call_static(ctx, &map_progs_xdp, BMC_PROG_XDP_WRITE_REPLY);
-		map_progs_xdp[BMC_PROG_XDP_WRITE_REPLY](ctx);
+		// map_progs_xdp[BMC_PROG_XDP_WRITE_REPLY](ctx);
 		return 0;
 	}
 
@@ -448,7 +455,7 @@ int bmc_write_reply_main(struct xdp_md *ctx)
 }
 
 SEC("bmc_invalidate_cache")
-int bmc_invalidate_cache_main(struct xdp_md *ctx)
+int bmc_invalidate_cache_main(struct xdp_md *ctx) // issue
 {
 	void *data_end = (void *)(long)ctx->data_end;
 	void *data = (void *)(long)ctx->data;

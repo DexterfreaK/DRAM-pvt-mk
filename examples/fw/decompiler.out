@@ -1,0 +1,419 @@
+; ModuleID = 'lifter-bpf-program'
+source_filename = "lifter-bpf-program"
+
+%struct.anon = type { [1 x i32*], [1024 x i32*], i16*, i4* }
+%struct.anon.0 = type { [14 x i32*], [10 x i32*], i4*, i4* }
+%struct.xdp_md = type opaque
+
+@flow_ctx_table = global %struct.anon zeroinitializer, section ".maps", align 8
+@tx_port = global %struct.anon.0 zeroinitializer, section ".maps", align 8
+
+declare i64 @bpf_map_lookup_elem.toreplace(i64, i64)
+
+declare i64 @bpf_get_current_pid_tgid.toreplace(i64)
+
+declare i64 @bpf_get_smp_processor_id.toreplace(i64)
+
+declare i64 @bpf_get_hash_recalc.toreplace(i64)
+
+declare i64 @bpf_get_cgroup_classid.toreplace(i64)
+
+declare i64 @bpf_trace_printk.toreplace(i64, i64, i64)
+
+declare i64 @bpf_get_numa_node_id.toreplace(i64)
+
+declare i64 @bpf_get_prandom_u32.toreplace(i64)
+
+declare i64 @bpf_map_update_elem.toreplace(i64, i64, i64, i64)
+
+declare i64 @bpf_redirect_map.toreplace(i64, i64, i64)
+
+define i32 @xdp_fw_prog(%struct.xdp_md* %0) section "xdp_fw" {
+setupBlock:
+  %r0 = alloca i64, align 8
+  %r1 = alloca i64, align 8
+  %r2 = alloca i64, align 8
+  %r3 = alloca i64, align 8
+  %r4 = alloca i64, align 8
+  %r5 = alloca i64, align 8
+  %r6 = alloca i64, align 8
+  %r7 = alloca i64, align 8
+  %r8 = alloca i64, align 8
+  %r9 = alloca i64, align 8
+  %r10 = alloca i64, align 8
+  %stackBegin = alloca i64, i32 2058, align 8
+  %stackEnd = getelementptr i64, i64* %stackBegin, i32 2048
+  %stackEndInt = ptrtoint i64* %stackEnd to i64
+  store i64 %stackEndInt, i64* %r10, align 4
+  %memInt = ptrtoint %struct.xdp_md* %0 to i64
+  store i64 %memInt, i64* %r1, align 4
+  %callStack = alloca i8*, i32 320, align 8
+  %callItemCnt = alloca i64, align 8
+  store i64 0, i64* %callItemCnt, align 4
+  br label %bb1
+
+bb1:                                              ; preds = %setupBlock
+  %1 = load i64, i64* %r1, align 4
+  %2 = inttoptr i64 %1 to i8*
+  %3 = getelementptr i8, i8* %2, i64 4
+  %4 = bitcast i8* %3 to i32*
+  %5 = load i32, i32* %4, align 4
+  %6 = zext i32 %5 to i64
+  store i64 %6, i64* %r3, align 4
+  %7 = load i64, i64* %r1, align 4
+  %8 = inttoptr i64 %7 to i8*
+  %9 = getelementptr i8, i8* %8, i64 0
+  %10 = bitcast i8* %9 to i32*
+  %11 = load i32, i32* %10, align 4
+  %12 = zext i32 %11 to i64
+  store i64 %12, i64* %r2, align 4
+  store i64 0, i64* %r4, align 4
+  %13 = load i64, i64* %r4, align 4
+  %14 = trunc i64 %13 to i32
+  %15 = load i64, i64* %r10, align 4
+  %16 = inttoptr i64 %15 to i8*
+  %17 = getelementptr i8, i8* %16, i64 -4
+  %18 = bitcast i8* %17 to i32*
+  store i32 %14, i32* %18, align 4
+  %19 = load i64, i64* %r4, align 4
+  %20 = load i64, i64* %r10, align 4
+  %21 = inttoptr i64 %20 to i8*
+  %22 = getelementptr i8, i8* %21, i64 -16
+  %23 = bitcast i8* %22 to i64*
+  store i64 %19, i64* %23, align 4
+  %24 = load i64, i64* %r4, align 4
+  %25 = load i64, i64* %r10, align 4
+  %26 = inttoptr i64 %25 to i8*
+  %27 = getelementptr i8, i8* %26, i64 -24
+  %28 = bitcast i8* %27 to i64*
+  store i64 %24, i64* %28, align 4
+  store i64 1, i64* %r6, align 4
+  %29 = load i64, i64* %r2, align 4
+  store i64 %29, i64* %r4, align 4
+  %30 = load i64, i64* %r4, align 4
+  %31 = add i64 %30, 14
+  store i64 %31, i64* %r4, align 4
+  %32 = load i64, i64* %r3, align 4
+  %33 = load i64, i64* %r4, align 4
+  %34 = icmp ugt i64 %33, %32
+  br i1 %34, label %bb21, label %bb2
+
+bb2:                                              ; preds = %bb1
+  %35 = load i64, i64* %r2, align 4
+  %36 = inttoptr i64 %35 to i8*
+  %37 = getelementptr i8, i8* %36, i64 12
+  %38 = load i8, i8* %37, align 1
+  %39 = zext i8 %38 to i64
+  store i64 %39, i64* %r4, align 4
+  %40 = load i64, i64* %r2, align 4
+  %41 = inttoptr i64 %40 to i8*
+  %42 = getelementptr i8, i8* %41, i64 13
+  %43 = load i8, i8* %42, align 1
+  %44 = zext i8 %43 to i64
+  store i64 %44, i64* %r5, align 4
+  %45 = load i64, i64* %r5, align 4
+  %46 = shl i64 %45, 8
+  store i64 %46, i64* %r5, align 4
+  %47 = load i64, i64* %r5, align 4
+  %48 = load i64, i64* %r4, align 4
+  %49 = or i64 %47, %48
+  store i64 %49, i64* %r5, align 4
+  %50 = load i64, i64* %r5, align 4
+  %51 = icmp ne i64 %50, 8
+  br i1 %51, label %bb21, label %bb4
+
+bb4:                                              ; preds = %bb2
+  %52 = load i64, i64* %r2, align 4
+  store i64 %52, i64* %r4, align 4
+  %53 = load i64, i64* %r4, align 4
+  %54 = add i64 %53, 34
+  store i64 %54, i64* %r4, align 4
+  %55 = load i64, i64* %r3, align 4
+  %56 = load i64, i64* %r4, align 4
+  %57 = icmp ugt i64 %56, %55
+  br i1 %57, label %bb21, label %bb6
+
+bb6:                                              ; preds = %bb4
+  %58 = load i64, i64* %r1, align 4
+  %59 = inttoptr i64 %58 to i8*
+  %60 = getelementptr i8, i8* %59, i64 12
+  %61 = bitcast i8* %60 to i32*
+  %62 = load i32, i32* %61, align 4
+  %63 = zext i32 %62 to i64
+  store i64 %63, i64* %r7, align 4
+  %64 = load i64, i64* %r2, align 4
+  %65 = inttoptr i64 %64 to i8*
+  %66 = getelementptr i8, i8* %65, i64 23
+  %67 = load i8, i8* %66, align 1
+  %68 = zext i8 %67 to i64
+  store i64 %68, i64* %r1, align 4
+  %69 = load i64, i64* %r1, align 4
+  %70 = icmp eq i64 %69, 17
+  br i1 %70, label %bb10, label %bb8
+
+bb8:                                              ; preds = %bb6
+  %71 = load i64, i64* %r1, align 4
+  %72 = icmp ne i64 %71, 6
+  br i1 %72, label %bb21, label %bb10
+
+bb10:                                             ; preds = %bb8, %bb6
+  %73 = load i64, i64* %r2, align 4
+  store i64 %73, i64* %r4, align 4
+  %74 = load i64, i64* %r4, align 4
+  %75 = add i64 %74, 42
+  store i64 %75, i64* %r4, align 4
+  %76 = load i64, i64* %r3, align 4
+  %77 = load i64, i64* %r4, align 4
+  %78 = icmp ugt i64 %77, %76
+  br i1 %78, label %bb21, label %bb12
+
+bb12:                                             ; preds = %bb10
+  %79 = load i64, i64* %r1, align 4
+  %80 = trunc i64 %79 to i16
+  %81 = load i64, i64* %r10, align 4
+  %82 = inttoptr i64 %81 to i8*
+  %83 = getelementptr i8, i8* %82, i64 -24
+  %84 = bitcast i8* %83 to i16*
+  store i16 %80, i16* %84, align 2
+  %85 = load i64, i64* %r2, align 4
+  %86 = inttoptr i64 %85 to i8*
+  %87 = getelementptr i8, i8* %86, i64 26
+  %88 = bitcast i8* %87 to i32*
+  %89 = load i32, i32* %88, align 4
+  %90 = zext i32 %89 to i64
+  store i64 %90, i64* %r3, align 4
+  %91 = load i64, i64* %r3, align 4
+  %92 = trunc i64 %91 to i32
+  %93 = load i64, i64* %r10, align 4
+  %94 = inttoptr i64 %93 to i8*
+  %95 = getelementptr i8, i8* %94, i64 -16
+  %96 = bitcast i8* %95 to i32*
+  store i32 %92, i32* %96, align 4
+  %97 = load i64, i64* %r2, align 4
+  %98 = inttoptr i64 %97 to i8*
+  %99 = getelementptr i8, i8* %98, i64 30
+  %100 = bitcast i8* %99 to i32*
+  %101 = load i32, i32* %100, align 4
+  %102 = zext i32 %101 to i64
+  store i64 %102, i64* %r4, align 4
+  %103 = load i64, i64* %r4, align 4
+  %104 = trunc i64 %103 to i32
+  %105 = load i64, i64* %r10, align 4
+  %106 = inttoptr i64 %105 to i8*
+  %107 = getelementptr i8, i8* %106, i64 -12
+  %108 = bitcast i8* %107 to i32*
+  store i32 %104, i32* %108, align 4
+  %109 = load i64, i64* %r2, align 4
+  %110 = inttoptr i64 %109 to i8*
+  %111 = getelementptr i8, i8* %110, i64 34
+  %112 = bitcast i8* %111 to i16*
+  %113 = load i16, i16* %112, align 2
+  %114 = zext i16 %113 to i64
+  store i64 %114, i64* %r1, align 4
+  %115 = load i64, i64* %r1, align 4
+  %116 = trunc i64 %115 to i16
+  %117 = load i64, i64* %r10, align 4
+  %118 = inttoptr i64 %117 to i8*
+  %119 = getelementptr i8, i8* %118, i64 -22
+  %120 = bitcast i8* %119 to i16*
+  store i16 %116, i16* %120, align 2
+  %121 = load i64, i64* %r2, align 4
+  %122 = inttoptr i64 %121 to i8*
+  %123 = getelementptr i8, i8* %122, i64 36
+  %124 = bitcast i8* %123 to i16*
+  %125 = load i16, i16* %124, align 2
+  %126 = zext i16 %125 to i64
+  store i64 %126, i64* %r2, align 4
+  %127 = load i64, i64* %r2, align 4
+  %128 = trunc i64 %127 to i16
+  %129 = load i64, i64* %r10, align 4
+  %130 = inttoptr i64 %129 to i8*
+  %131 = getelementptr i8, i8* %130, i64 -20
+  %132 = bitcast i8* %131 to i16*
+  store i16 %128, i16* %132, align 2
+  %133 = load i64, i64* %r3, align 4
+  %134 = load i64, i64* %r4, align 4
+  %135 = icmp uge i64 %134, %133
+  br i1 %135, label %bb13, label %bb14
+
+bb14:                                             ; preds = %bb12
+  %136 = load i64, i64* %r3, align 4
+  %137 = trunc i64 %136 to i32
+  %138 = load i64, i64* %r10, align 4
+  %139 = inttoptr i64 %138 to i8*
+  %140 = getelementptr i8, i8* %139, i64 -12
+  %141 = bitcast i8* %140 to i32*
+  store i32 %137, i32* %141, align 4
+  %142 = load i64, i64* %r4, align 4
+  %143 = trunc i64 %142 to i32
+  %144 = load i64, i64* %r10, align 4
+  %145 = inttoptr i64 %144 to i8*
+  %146 = getelementptr i8, i8* %145, i64 -16
+  %147 = bitcast i8* %146 to i32*
+  store i32 %143, i32* %147, align 4
+  br label %bb13
+
+bb13:                                             ; preds = %bb14, %bb12
+  %148 = load i64, i64* %r1, align 4
+  store i64 %148, i64* %r3, align 4
+  %149 = load i64, i64* %r2, align 4
+  store i64 %149, i64* %r4, align 4
+  %150 = load i64, i64* %r3, align 4
+  %151 = load i64, i64* %r4, align 4
+  %152 = icmp uge i64 %151, %150
+  br i1 %152, label %bb15, label %bb16
+
+bb16:                                             ; preds = %bb13
+  %153 = load i64, i64* %r1, align 4
+  %154 = trunc i64 %153 to i16
+  %155 = load i64, i64* %r10, align 4
+  %156 = inttoptr i64 %155 to i8*
+  %157 = getelementptr i8, i8* %156, i64 -20
+  %158 = bitcast i8* %157 to i16*
+  store i16 %154, i16* %158, align 2
+  %159 = load i64, i64* %r2, align 4
+  %160 = trunc i64 %159 to i16
+  %161 = load i64, i64* %r10, align 4
+  %162 = inttoptr i64 %161 to i8*
+  %163 = getelementptr i8, i8* %162, i64 -22
+  %164 = bitcast i8* %163 to i16*
+  store i16 %160, i16* %164, align 2
+  br label %bb15
+
+bb15:                                             ; preds = %bb16, %bb13
+  %165 = load i64, i64* %r10, align 4
+  store i64 %165, i64* %r2, align 4
+  %166 = load i64, i64* %r2, align 4
+  %167 = add i64 %166, -24
+  store i64 %167, i64* %r2, align 4
+  store i64 352, i64* %r1, align 4
+  %168 = load i64, i64* %r1, align 4
+  %169 = load i64, i64* %r2, align 4
+  %170 = call i64 @bpf_map_lookup_elem.toreplace(i64 %168, i64 %169)
+  store i64 %170, i64* %r0, align 4
+  br label %bb18
+
+bb18:                                             ; preds = %bb15
+  %171 = load i64, i64* %r7, align 4
+  store i64 %171, i64* %r1, align 4
+  %172 = load i64, i64* %r1, align 4
+  %173 = icmp ne i64 %172, 7
+  br i1 %173, label %bb24, label %bb20
+
+bb20:                                             ; preds = %bb18
+  %174 = load i64, i64* %r0, align 4
+  %175 = icmp eq i64 %174, 0
+  br i1 %175, label %bb21, label %bb22
+
+bb22:                                             ; preds = %bb20
+  %176 = load i64, i64* %r0, align 4
+  %177 = inttoptr i64 %176 to i8*
+  %178 = getelementptr i8, i8* %177, i64 0
+  %179 = load i8, i8* %178, align 1
+  %180 = zext i8 %179 to i64
+  store i64 %180, i64* %r6, align 4
+  br label %bb28
+
+bb24:                                             ; preds = %bb18
+  store i64 7, i64* %r6, align 4
+  %181 = load i64, i64* %r0, align 4
+  %182 = icmp ne i64 %181, 0
+  br i1 %182, label %bb28, label %bb26
+
+bb26:                                             ; preds = %bb24
+  store i64 6, i64* %r1, align 4
+  %183 = load i64, i64* %r1, align 4
+  %184 = trunc i64 %183 to i8
+  %185 = load i64, i64* %r10, align 4
+  %186 = inttoptr i64 %185 to i8*
+  %187 = getelementptr i8, i8* %186, i64 -4
+  store i8 %184, i8* %187, align 1
+  store i64 7, i64* %r6, align 4
+  %188 = load i64, i64* %r6, align 4
+  %189 = trunc i64 %188 to i16
+  %190 = load i64, i64* %r10, align 4
+  %191 = inttoptr i64 %190 to i8*
+  %192 = getelementptr i8, i8* %191, i64 -2
+  %193 = bitcast i8* %192 to i16*
+  store i16 %189, i16* %193, align 2
+  %194 = load i64, i64* %r10, align 4
+  store i64 %194, i64* %r2, align 4
+  %195 = load i64, i64* %r2, align 4
+  %196 = add i64 %195, -24
+  store i64 %196, i64* %r2, align 4
+  %197 = load i64, i64* %r10, align 4
+  store i64 %197, i64* %r3, align 4
+  %198 = load i64, i64* %r3, align 4
+  %199 = add i64 %198, -4
+  store i64 %199, i64* %r3, align 4
+  store i64 496, i64* %r1, align 4
+  store i64 0, i64* %r4, align 4
+  %200 = load i64, i64* %r1, align 4
+  %201 = load i64, i64* %r2, align 4
+  %202 = load i64, i64* %r3, align 4
+  %203 = load i64, i64* %r4, align 4
+  %204 = call i64 @bpf_map_update_elem.toreplace(i64 %200, i64 %201, i64 %202, i64 %203)
+  store i64 %204, i64* %r0, align 4
+  br label %bb28
+
+bb28:                                             ; preds = %bb26, %bb24, %bb22
+  store i64 528, i64* %r1, align 4
+  %205 = load i64, i64* %r6, align 4
+  store i64 %205, i64* %r2, align 4
+  store i64 0, i64* %r3, align 4
+  %206 = load i64, i64* %r1, align 4
+  %207 = load i64, i64* %r2, align 4
+  %208 = load i64, i64* %r3, align 4
+  %209 = call i64 @bpf_redirect_map.toreplace(i64 %206, i64 %207, i64 %208)
+  store i64 %209, i64* %r0, align 4
+  br label %bb30
+
+bb30:                                             ; preds = %bb28
+  %210 = load i64, i64* %r0, align 4
+  store i64 %210, i64* %r6, align 4
+  br label %bb21
+
+bb21:                                             ; preds = %bb30, %bb20, %bb10, %bb8, %bb4, %bb2, %bb1
+  %211 = load i64, i64* %r6, align 4
+  store i64 %211, i64* %r0, align 4
+  %212 = load i64, i64* %callItemCnt, align 4
+  %213 = icmp eq i64 %212, 0
+  br i1 %213, label %exitBlock, label %localFuncReturnBlock
+
+exitBlock:                                        ; preds = %bb21
+  %214 = load i64, i64* %r0, align 4
+  %215 = trunc i64 %214 to i32
+  ret i32 %215
+
+localFuncReturnBlock:                             ; preds = %bb21
+  %216 = load i64, i64* %callItemCnt, align 4
+  %217 = sub i64 %216, 1
+  %218 = getelementptr i8*, i8** %callStack, i64 %217
+  %219 = load i8*, i8** %218, align 8
+  %220 = sub i64 %216, 2
+  %regSlotPtr = getelementptr i8*, i8** %callStack, i64 %220
+  %221 = load i8*, i8** %regSlotPtr, align 8
+  %222 = ptrtoint i8* %221 to i64
+  store i64 %222, i64* %r6, align 4
+  %223 = sub i64 %216, 3
+  %regSlotPtr1 = getelementptr i8*, i8** %callStack, i64 %223
+  %224 = load i8*, i8** %regSlotPtr1, align 8
+  %225 = ptrtoint i8* %224 to i64
+  store i64 %225, i64* %r7, align 4
+  %226 = sub i64 %216, 4
+  %regSlotPtr2 = getelementptr i8*, i8** %callStack, i64 %226
+  %227 = load i8*, i8** %regSlotPtr2, align 8
+  %228 = ptrtoint i8* %227 to i64
+  store i64 %228, i64* %r8, align 4
+  %229 = sub i64 %216, 5
+  %regSlotPtr3 = getelementptr i8*, i8** %callStack, i64 %229
+  %230 = load i8*, i8** %regSlotPtr3, align 8
+  %231 = ptrtoint i8* %230 to i64
+  store i64 %231, i64* %r9, align 4
+  %232 = sub i64 %216, 5
+  store i64 %232, i64* %callItemCnt, align 4
+  %233 = load i64, i64* %r10, align 4
+  %234 = add i64 %233, 64
+  store i64 %234, i64* %r10, align 4
+  indirectbr i8* %219, []
+}

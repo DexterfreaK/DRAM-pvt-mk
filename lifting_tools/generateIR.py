@@ -42,7 +42,11 @@ except Exception as e:
 def gen_reloc_dump(elf, dump_dir) -> bool:
     with open(elf, 'rb') as f:
         elffile = ELFFile(f)
+        # print("Sections:")
+        # for section in elffile.iter_sections():
+        #     print(f"  {section.name} (type: {section['sh_type']}, size: {section['sh_size']})")
         relxdp_section = elffile.get_section_by_name('.relxdp')
+        # print("relxdp_section : ", relxdp_section)
         if not isinstance(relxdp_section, RelocationSection):
             return False
         symtab = elffile.get_section(relxdp_section['sh_link'])
@@ -69,6 +73,7 @@ func_pass_lib = os.getenv("FUNC_PASS_LIB")
 try:
     if do_relocate:
         result = subprocess.run(["opt", "-load", f"{func_pass_lib}", f"-load-pass-plugin={func_pass_lib}", f"-passes=custom-bpf-pass", '-map-config', f"{map_offset_mapping}", f"{lifted_ir_file}", '-o', f"{lifted_ir_file}"])
+        print(result.stdout)
 except Exception as e:
     print("Error in applying function pass : ",e)
     exit(1)
