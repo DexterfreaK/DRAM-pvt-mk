@@ -15,7 +15,7 @@ import yaml
 KLEE_BPF_CFLAGS = "-I/home/anakin/DRACO-pvt/examples/headers/ -I/usr/include/x86_64-linux-gnu -I/home/anakin/DRACO-pvt/ebpf-se/libbpf-stubbed/src/build/usr/include/"
 
 object_file = sys.argv[1]
-prog_name   = os.path.basename(object_file)
+prog_name   = sys.argv[2] if sys.argc > 3 else ""   # Name of the leader program that will be called
 if not os.path.exists(object_file):
     print(f"Path : {object_file} does not exist")
     exit(1)
@@ -100,8 +100,14 @@ def generate_code(config, template_path='.', template_filename='draco_template.j
 def generate_config(dir):
     config = {}
     with open(os.path.join(dir,"prog_dump"),'r') as f:
-        func_name = f.read()
-        func_name = func_name.strip()
+        names = f.readlines()
+        names = [n.strip() for n in names if n.strip() != ""]
+        if len(names) == 0:
+            print("No name found in prog_dump file")
+        func_name = prog_name
+        if prog_name not in names:
+            print(f"Program name {prog_name} not found in prog_dump file list = {names} fallback to the 1st found name")
+            func_name = names[0]
         config["extern_func"] = str(func_name)
     
     config["maps"] = []
