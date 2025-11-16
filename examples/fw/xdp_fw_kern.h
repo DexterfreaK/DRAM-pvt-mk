@@ -61,13 +61,13 @@ struct bpf_map_def SEC("maps") flow_ctx_table = {
 	.max_entries = 1024,
 };
 #else
-struct
-{
-    __uint(type, BPF_MAP_TYPE_DEVMAP);
-    __uint(max_entries, 10);
-    __type(key, int);
-    __type(value, int);
-} tx_port SEC(".maps");
+// struct
+// {
+//     __uint(type, BPF_MAP_TYPE_DEVMAP);
+//     __uint(max_entries, 10);
+//     __type(key, int);
+//     __type(value, int);
+// } tx_port SEC(".maps");
 struct
 {
     __uint(type, BPF_MAP_TYPE_HASH);

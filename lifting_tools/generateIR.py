@@ -15,7 +15,7 @@ import yaml
 KLEE_BPF_CFLAGS = "-I/home/anakin/DRACO-pvt/examples/headers/ -I/usr/include/x86_64-linux-gnu -I/home/anakin/DRACO-pvt/ebpf-se/libbpf-stubbed/src/build/usr/include/"
 
 object_file = sys.argv[1]
-prog_name   = sys.argv[2] if sys.argc > 3 else ""   # Name of the leader program that will be called
+prog_name   = sys.argv[2] if len(sys.argv) > 3 else ""   # Name of the leader program that will be called
 if not os.path.exists(object_file):
     print(f"Path : {object_file} does not exist")
     exit(1)

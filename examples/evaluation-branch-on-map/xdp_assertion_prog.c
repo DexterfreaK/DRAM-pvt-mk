@@ -14,7 +14,6 @@
 #include <linux/if_ether.h>
 #include "xdp_assertion_prog.h"
 #include <stdint.h>
-#include "../../verification_tools/verification_helpers.h"
 
 
 // Tests for lookup in array map, and then compare returned value
