@@ -1,3 +1,5 @@
+#include <bits/enable_special_members.h>
+#include <llvm/IR/DerivedTypes.h>
 #include <llvm/IR/Function.h>
 #include <llvm/IR/PassManager.h>
 #include <llvm/Pass.h>
@@ -9,11 +11,14 @@
 #include <llvm/IR/TypeFinder.h>
 #include <llvm/IR/Type.h>
 #include <llvm/IR/IRBuilder.h>
+#include <llvm/IR/Constants.h>
 #include <llvm/Support/CommandLine.h>
 #include <iostream>
 #include <fstream>
+#include <llvm/Support/raw_ostream.h>
 #include <sstream>
 #include <map>
+#include <unordered_set>
 #include <vector>
 
 namespace llvm {
@@ -54,7 +59,7 @@ public:
         if (!MapConfigFile.empty()) {
             readMapConfig(MapConfigFile);
         } else {
-            errs() << "Warning: No map configuration file provided\n";
+            std::cout << "Warning: No map configuration file provided\n";
             return PreservedAnalyses::none();
         }
 
@@ -63,6 +68,7 @@ public:
         for (auto &GV : M.globals()) {
             for (const auto &entry : mapIdToName) {
                 if (GV.getName() == entry.second) {
+                    std::cout << "Found map global to remove: " << GV.getName().str() << std::endl;
                     globalsToRemove.push_back(&GV);
                     break;
                 }
@@ -80,6 +86,8 @@ public:
         // 3) Transform bpf_map_lookup_elem calls
         transformMapLookups(M);
 
+        std::cout << "transformMapLookups done" << std::endl;
+
         return PreservedAnalyses::none();
     }
 
@@ -88,7 +96,7 @@ private:
         std::ifstream file(filename);
         
         if (!file.is_open()) {
-            errs() << "Error: Cannot open map config file: " << filename << "\n";
+            std::cout << "Error: Cannot open map config file: " << filename << "\n";
             return;
         }
 
@@ -105,20 +113,26 @@ private:
                 try {
                     int id = std::stoi(idStr);
                     mapIdToName[id] = mapName;
-                    errs() << "Loaded map config: ID " << id << " -> " << mapName << "\n";
+                    std::cout << "Loaded map config: ID " << id << " -> " << mapName << "\n";
                 } catch (const std::exception &e) {
-                    errs() << "Error parsing map ID: " << idStr << "\n";
+                    std::cout << "Error parsing map ID: " << idStr << "\n";
                 }
             }
         }
     }
 
     void createMapDefinitions(Module &M, StructType *bpfMapDefType) {
+        std::unordered_set<std::string> mapNames;
         for (const auto &entry : mapIdToName) {
             int mapId = entry.first;
             std::string mapName = entry.second;
             
-            std::cout << "map name : " << mapName << ",, mapId : " << mapId << std::endl;
+            if (mapNames.find(mapName) != mapNames.end()) {
+                continue;
+            }
+            mapNames.insert(mapName);
+
+            std::cout << "map name : " << mapName << ", mapId : " << mapId << std::endl;
 
             // Create external global variable (no initializer)
             GlobalVariable *gv = new GlobalVariable(
@@ -154,6 +168,9 @@ private:
                             if (CalledF->getName() == "bpf_map_update_elem.toreplace") {
                                 CallsToReplace.push_back({CI,"bpf_map_update_elem"});
                             }
+                            if (CalledF->getName() == "bpf_tail_call.toreplace") {
+                                CallsToReplace.push_back({CI,"bpf_tail_call"});
+                            }
                         }
                     }
                 }
@@ -162,107 +179,270 @@ private:
 
         // Now replace each call
         for (auto &i : CallsToReplace) {
-            replaceMapLookupDelete(i.first, M, i.second, (i.second == "bpf_map_update_elem"));
+            replaceMapLookupDelete(i.first, M, i.second, i.second);
         }
 
+        // Collect unique function names to erase
+        std::unordered_set<std::string> functionsToErase;
         for (auto &i : CallsToReplace) {
-            Function *FuncDecl = M.getFunction(i.second + ".toreplace");
-            // std::cout << "call to replace :: " << i.second << std::endl;
-            if (FuncDecl == nullptr) {
-                // std::cout << "null hai bc" << std::endl;
-                return;
-            }
-            FuncDecl->eraseFromParent();
+            functionsToErase.insert(i.second + ".toreplace");
         }
 
+        // Erase each unique function declaration once
+        for (const auto &funcName : functionsToErase) {
+            Function *FuncDecl = M.getFunction(funcName);
+            std::cout << "call to replace :: " << funcName << std::endl;
+            if (FuncDecl == nullptr) {
+                std::cout << "Function not found: " << funcName << std::endl;
+                continue;
+            }
+            // Check if function still has uses (shouldn't happen if all calls were replaced)
+            if (!FuncDecl->use_empty()) {
+                std::cout << "Warning: Function " << funcName << " still has uses, cannot erase" << std::endl;
+                continue;
+            }
+            std::cout << "trying to erase : " << FuncDecl->getName().str() << std::endl;
+            FuncDecl->eraseFromParent();
+            std::cout << "ERASED" << std::endl;
+        }
     }
 
-    void replaceMapLookupDelete(CallInst *oldCall, Module &M, std::string func_name, bool is_update_func) {
+    void replaceMapLookupDelete(CallInst *oldCall, Module &M, std::string func_name, std::string& func_type) {
         IRBuilder<> Builder(oldCall);
-        
-        // Get the map ID from the first argument
-        Value *mapIdArg = oldCall->getArgOperand(0);
-        Value *keyArg = oldCall->getArgOperand(1);
-        
-        // If it's a constant, we can determine which map it's accessing
-        if (ConstantInt *CI = dyn_cast<ConstantInt>(mapIdArg)) {
-            int mapId = CI->getSExtValue();
-            errs() << "Found map lookup with ID: " << mapId << "\n";
-            
-            // Find if we have a name for this ID
-            auto it = mapIdToName.find(mapId);
-            if (it != mapIdToName.end()) {
-                errs() << "  Mapped to map name: " << it->second << "\n";
 
-                std::string mapName = it->second;
+        if (func_type.compare("bpf_tail_call") == 0) {
+            std::cout << "tail call" << std::endl;
+            Value *ctxArg = oldCall->getArgOperand(0);
+            Value *progArrayMapArg = oldCall->getArgOperand(1);
+            Value *indexArg = oldCall->getArgOperand(2);
 
-                // Get the map global variable
-                GlobalVariable *mapGV = M.getGlobalVariable(mapName);
-                if (!mapGV) {
-                    errs() << "  Error: Map global variable not found: " << mapName << "\n";
-                    return;
-                }
+            if (ConstantInt *CI = dyn_cast<ConstantInt>(progArrayMapArg)) {
+                int mapId = CI->getSExtValue();
+                std::cout << "Found map lookup with ID: " << mapId << "\n";
+                auto it = mapIdToName.find(mapId);
+                if (it != mapIdToName.end()) {
+                    std::cout << "  Mapped to map name: " << it->second << "\n";
+                    std::string mapName = it->second;
+                    GlobalVariable *mapGV = M.getGlobalVariable(mapName);
+                    if (!mapGV) {
+                        std::cout << "  Error: Map global variable not found: " << mapName << "\n";
+                        return;
+                    }
 
-                // 1. Cast map global variable to i8*
-                Value *mapPtr = Builder.CreateBitCast(mapGV, Type::getInt8PtrTy(M.getContext()), mapName + "_ptr");
-
-                // 2. Cast key to i8*
-                Value *keyPtr = Builder.CreateIntToPtr(keyArg, Type::getInt8PtrTy(M.getContext()), "key_ptr");
-
-
-                if(!is_update_func)
-                {
-                    // 3. Get or create the function with correct signature
-                    FunctionType *lookupFnType = FunctionType::get(
-                        Type::getInt8PtrTy(M.getContext()), // Return type: i8*
-                        {Type::getInt8PtrTy(M.getContext()), Type::getInt8PtrTy(M.getContext())}, // Args: i8*, i8*
+                    FunctionType *tailCallFuncType = FunctionType::get(
+                        Type::getInt8PtrTy(M.getContext()),
+                        {Type::getInt8PtrTy(M.getContext()), Type::getInt8PtrTy(M.getContext()), Type::getInt32Ty(M.getContext())},
                         false
                     );
 
-                    Function *lookupFn = M.getFunction(func_name); // Check if already exists
-                    if (!lookupFn) {
-                        lookupFn = Function::Create(
-                            lookupFnType,
+                    Function *tailCallFunc = M.getFunction(func_name); // Check if already exists
+                    if (!tailCallFunc) {
+                        tailCallFunc = Function::Create(
+                            tailCallFuncType,
                             Function::ExternalLinkage,
                             func_name,
                             M
                         );
                     }
 
-                    // 4. Call bpf_map_lookup_elem
-                    CallInst *newCall = Builder.CreateCall(lookupFn, {mapPtr, keyPtr}, "result_ptr");
+                    // Convert ctxArg to pointer if it's an integer
+                    Value* ctxptr;
+                    if (ctxArg->getType()->isIntegerTy()) {
+                        ctxptr = Builder.CreateIntToPtr(ctxArg, Type::getInt8PtrTy(M.getContext()), "ctx_ptr");
+                    } else {
+                        ctxptr = Builder.CreateBitCast(ctxArg, Type::getInt8PtrTy(M.getContext()), "ctx_ptr");
+                    }
 
-                    // 5. Cast result back to i64 if needed
+                    // Convert progArrayMapArg to pointer if it's an integer
+                    Value* progArrayMapPtr;
+                    if (progArrayMapArg->getType()->isIntegerTy()) {
+                        progArrayMapPtr = Builder.CreateIntToPtr(progArrayMapArg, Type::getInt8PtrTy(M.getContext()), "prog_array_map_ptr");
+                    } else {
+                        progArrayMapPtr = Builder.CreateBitCast(progArrayMapArg, Type::getInt8PtrTy(M.getContext()), "prog_array_map_ptr");
+                    }
+
+                    // Convert indexArg from i64 to i32 if necessary
+                    Value* indexValue;
+                    if (indexArg->getType()->isIntegerTy(64)) {
+                        indexValue = Builder.CreateTrunc(indexArg, Type::getInt32Ty(M.getContext()), "index_i32");
+                    } else {
+                        indexValue = indexArg;
+                    }
+
+                    CallInst *newCall = Builder.CreateCall(tailCallFunc, {ctxptr, progArrayMapPtr, indexValue}, "result_ptr");
                     Value *result = Builder.CreatePtrToInt(newCall, Type::getInt64Ty(M.getContext()));
-
-                    // Replace all uses of the old call with the new result
                     oldCall->replaceAllUsesWith(result);
-
-                    // Delete the old call
                     oldCall->eraseFromParent();
-                }
-                else
-                {
-                    Value* valuearg = oldCall->getArgOperand(2);
-                    Value* flagarg = oldCall->getArgOperand(3);
-
-                    Value *valptr = Builder.CreateIntToPtr(valuearg, Type::getInt8PtrTy(M.getContext()), "val_ptr");
-
-                    FunctionType *updateFnType = FunctionType::get(
-                        Type::getInt8PtrTy(M.getContext()), // Return type: i8*
-                        {Type::getInt8PtrTy(M.getContext()), Type::getInt8PtrTy(M.getContext()), Type::getInt8PtrTy(M.getContext()), Type::getInt64Ty(M.getContext())}, // Args: i8*, i8*
+                } else {
+                    // Unknown program array map ID - still replace with direct pointer
+                    std::cout << "  Warning: Tail call map ID " << mapId << " not found in relocation table\n";
+                    
+                    FunctionType *tailCallFuncType = FunctionType::get(
+                        Type::getInt8PtrTy(M.getContext()),
+                        {Type::getInt8PtrTy(M.getContext()), Type::getInt8PtrTy(M.getContext()), Type::getInt32Ty(M.getContext())},
                         false
                     );
 
-                    Function *updateFn = Function::Create(updateFnType, Function::ExternalLinkage, func_name, M);
-                    CallInst *newCall = Builder.CreateCall(updateFn, {mapPtr, keyPtr, valptr, flagarg}, "result_ptr");
+                    Function *tailCallFunc = M.getFunction(func_name);
+                    if (!tailCallFunc) {
+                        tailCallFunc = Function::Create(tailCallFuncType, Function::ExternalLinkage, func_name, M);
+                    }
+
+                    Value* ctxptr;
+                    if (ctxArg->getType()->isIntegerTy()) {
+                        ctxptr = Builder.CreateIntToPtr(ctxArg, Type::getInt8PtrTy(M.getContext()), "ctx_ptr");
+                    } else {
+                        ctxptr = Builder.CreateBitCast(ctxArg, Type::getInt8PtrTy(M.getContext()), "ctx_ptr");
+                    }
+
+                    Value* progArrayMapPtr = Builder.CreateIntToPtr(progArrayMapArg, Type::getInt8PtrTy(M.getContext()), "unknown_prog_array_ptr");
+
+                    Value* indexValue;
+                    if (indexArg->getType()->isIntegerTy(64)) {
+                        indexValue = Builder.CreateTrunc(indexArg, Type::getInt32Ty(M.getContext()), "index_i32");
+                    } else {
+                        indexValue = indexArg;
+                    }
+
+                    CallInst *newCall = Builder.CreateCall(tailCallFunc, {ctxptr, progArrayMapPtr, indexValue}, "result_ptr");
                     Value *result = Builder.CreatePtrToInt(newCall, Type::getInt64Ty(M.getContext()));
                     oldCall->replaceAllUsesWith(result);
                     oldCall->eraseFromParent();
                 }
-
             }
-        
+            
+        } else {
+            std::cout << "not a tail call" << std::endl;
+            // Get the map ID from the first argument
+            Value *mapIdArg = oldCall->getArgOperand(0);
+            Value *keyArg = oldCall->getArgOperand(1);
+            
+            // If it's a constant, we can determine which map it's accessing
+            if (ConstantInt *CI = dyn_cast<ConstantInt>(mapIdArg)) {
+                int mapId = CI->getSExtValue();
+                std::cout << "Found map lookup with ID: " << mapId << "\n";
+                
+                // Find if we have a name for this ID
+                auto it = mapIdToName.find(mapId);
+                if (it != mapIdToName.end()) {
+                    std::cout << "  Mapped to map name: " << it->second << "\n";
+
+                    std::string mapName = it->second;
+
+                    // Get the map global variable
+                    GlobalVariable *mapGV = M.getGlobalVariable(mapName);
+                    if (!mapGV) {
+                        std::cout << "  Error: Map global variable not found: " << mapName << "\n";
+                        return;
+                    }
+
+                    // 1. Cast map global variable to i8*
+                    Value *mapPtr = Builder.CreateBitCast(mapGV, Type::getInt8PtrTy(M.getContext()), mapName + "_ptr");
+
+                    // 2. Cast key to i8*
+                    Value *keyPtr = Builder.CreateIntToPtr(keyArg, Type::getInt8PtrTy(M.getContext()), "key_ptr");
+
+
+                    if(func_type.compare("bpf_map_lookup_elem") == 0 || func_type.compare("bpf_map_delete_elem") == 0)
+                    {
+                        std::cout << "lookup or delete" << std::endl;
+                        // 3. Get or create the function with correct signature
+                        FunctionType *lookupFnType = FunctionType::get(
+                            Type::getInt8PtrTy(M.getContext()), // Return type: i8*
+                            {Type::getInt8PtrTy(M.getContext()), Type::getInt8PtrTy(M.getContext())}, // Args: i8*, i8*
+                            false
+                        );
+
+                        Function *lookupFn = M.getFunction(func_name); // Check if already exists
+                        if (!lookupFn) {
+                            lookupFn = Function::Create(
+                                lookupFnType,
+                                Function::ExternalLinkage,
+                                func_name,
+                                M
+                            );
+                        }
+
+                        // 4. Call bpf_map_lookup_elem
+                        CallInst *newCall = Builder.CreateCall(lookupFn, {mapPtr, keyPtr}, "result_ptr");
+
+                        // 5. Cast result back to i64 if needed
+                        Value *result = Builder.CreatePtrToInt(newCall, Type::getInt64Ty(M.getContext()));
+
+                        // Replace all uses of the old call with the new result
+                        oldCall->replaceAllUsesWith(result);
+
+                        // Delete the old call
+                        oldCall->eraseFromParent();
+                    }
+                    else if (func_type.compare("bpf_map_update_elem") == 0)
+                    {
+                        std::cout << "update" << std::endl;
+                        Value* valuearg = oldCall->getArgOperand(2);
+                        Value* flagarg = oldCall->getArgOperand(3);
+
+                        Value *valptr = Builder.CreateIntToPtr(valuearg, Type::getInt8PtrTy(M.getContext()), "val_ptr");
+
+                        FunctionType *updateFnType = FunctionType::get(
+                            Type::getInt8PtrTy(M.getContext()), // Return type: i8*
+                            {Type::getInt8PtrTy(M.getContext()), Type::getInt8PtrTy(M.getContext()), Type::getInt8PtrTy(M.getContext()), Type::getInt64Ty(M.getContext())}, // Args: i8*, i8*
+                            false
+                        );
+
+                        Function *updateFn = Function::Create(updateFnType, Function::ExternalLinkage, func_name, M);
+                        CallInst *newCall = Builder.CreateCall(updateFn, {mapPtr, keyPtr, valptr, flagarg}, "result_ptr");
+                        Value *result = Builder.CreatePtrToInt(newCall, Type::getInt64Ty(M.getContext()));
+                        oldCall->replaceAllUsesWith(result);
+                        oldCall->eraseFromParent();
+                    }
+                } else {
+                    // Map ID not found in relocation table - might be a stack address or invalid
+                    // Still replace to remove .toreplace suffix, but use the ID directly as pointer
+                    std::cout << "  Warning: Map ID " << mapId << " not found in relocation table, using as direct pointer\n";
+                    
+                    Value *mapPtr = Builder.CreateIntToPtr(mapIdArg, Type::getInt8PtrTy(M.getContext()), "unknown_map_ptr");
+                    Value *keyPtr = Builder.CreateIntToPtr(keyArg, Type::getInt8PtrTy(M.getContext()), "key_ptr");
+                    
+                    if(func_type.compare("bpf_map_lookup_elem") == 0 || func_type.compare("bpf_map_delete_elem") == 0) {
+                        FunctionType *lookupFnType = FunctionType::get(
+                            Type::getInt8PtrTy(M.getContext()),
+                            {Type::getInt8PtrTy(M.getContext()), Type::getInt8PtrTy(M.getContext())},
+                            false
+                        );
+                        
+                        Function *lookupFn = M.getFunction(func_name);
+                        if (!lookupFn) {
+                            lookupFn = Function::Create(lookupFnType, Function::ExternalLinkage, func_name, M);
+                        }
+                        
+                        CallInst *newCall = Builder.CreateCall(lookupFn, {mapPtr, keyPtr}, "result_ptr");
+                        Value *result = Builder.CreatePtrToInt(newCall, Type::getInt64Ty(M.getContext()));
+                        oldCall->replaceAllUsesWith(result);
+                        oldCall->eraseFromParent();
+                    } else if (func_type.compare("bpf_map_update_elem") == 0) {
+                        Value* valuearg = oldCall->getArgOperand(2);
+                        Value* flagarg = oldCall->getArgOperand(3);
+                        Value *valptr = Builder.CreateIntToPtr(valuearg, Type::getInt8PtrTy(M.getContext()), "val_ptr");
+                        
+                        FunctionType *updateFnType = FunctionType::get(
+                            Type::getInt8PtrTy(M.getContext()),
+                            {Type::getInt8PtrTy(M.getContext()), Type::getInt8PtrTy(M.getContext()), Type::getInt8PtrTy(M.getContext()), Type::getInt64Ty(M.getContext())},
+                            false
+                        );
+                        
+                        Function *updateFn = M.getFunction(func_name);
+                        if (!updateFn) {
+                            updateFn = Function::Create(updateFnType, Function::ExternalLinkage, func_name, M);
+                        }
+                        
+                        CallInst *newCall = Builder.CreateCall(updateFn, {mapPtr, keyPtr, valptr, flagarg}, "result_ptr");
+                        Value *result = Builder.CreatePtrToInt(newCall, Type::getInt64Ty(M.getContext()));
+                        oldCall->replaceAllUsesWith(result);
+                        oldCall->eraseFromParent();
+                    }
+                }
+            
+            }
         }
     }
 };
