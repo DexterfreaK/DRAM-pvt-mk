@@ -48,9 +48,6 @@ struct paxos_quorum {
     __u32 view, opnum, bitset;
 };
 
-typedef int (*xdp_func_ptr)(struct xdp_md *);
-xdp_func_ptr map_progs_xdp[5];
-
 struct paxos_ctr_state {
     enum ReplicaStatus state;
     int myIdx, leaderIdx, batchSize;
@@ -63,6 +60,9 @@ struct paxos_batch {
 };
 
 #ifdef KLEE_VERIFICATION
+
+typedef int (*xdp_func_ptr)(struct xdp_md *);
+xdp_func_ptr map_progs_xdp[5];
 
 struct bpf_map_def SEC("maps") map_configure = {
     .type = BPF_MAP_TYPE_ARRAY,
@@ -112,6 +112,13 @@ struct bpf_map_def SEC("maps") map_request_buffer = {
 #else  // ---------------- NON-KLEE (normal BPF build) ----------------
 
 struct {
+    __uint(type, BPF_MAP_TYPE_PROG_ARRAY);
+    __uint(max_entries, 5);
+    __type(key, __u32);
+    __type(value, __u32);
+} map_progs_xdp SEC(".maps");
+
+struct {
     __uint(type, BPF_MAP_TYPE_ARRAY);
     __uint(max_entries, FAST_REPLICA_MAX);
     __type(key, __u32);
@@ -146,15 +153,15 @@ struct {
     __type(value, struct paxos_batch);
 } batch_context SEC(".maps");
 
-struct {
-    __uint(type, BPF_MAP_TYPE_RINGBUF);
-    __uint(max_entries, 1 << 20);
-} map_prepare_buffer SEC(".maps");
+// struct {
+//     __uint(type, BPF_MAP_TYPE_RINGBUF);
+//     __uint(max_entries, 1 << 20);
+// } map_prepare_buffer SEC(".maps");
 
-struct {
-    __uint(type, BPF_MAP_TYPE_RINGBUF);
-    __uint(max_entries, 1 << 20);
-} map_request_buffer SEC(".maps");
+// struct {
+//     __uint(type, BPF_MAP_TYPE_RINGBUF);
+//     __uint(max_entries, 1 << 20);
+// } map_request_buffer SEC(".maps");
 
 #endif // KLEE_VERIFICATION
 
@@ -210,7 +217,7 @@ static inline int compute_message_type(char *payload, void *data_end)
     return -1;
 }
 
-SEC("fastPaxos")
+SEC("xdp")
 int fastPaxos_main(struct xdp_md *ctx)
 {
     void *data_end = (void *)(long)ctx->data_end;
@@ -251,8 +258,11 @@ int fastPaxos_main(struct xdp_md *ctx)
         payload[23] == 'a' && payload[24] == 'r' && payload[25] == 'e' && payload[26] == 'M')
     {
         // PrepareMessage in `vr`.
-        // bpf_tail_call(ctx, map_progs_xdp, FAST_PROG_XDP_HANDLE_PREPARE);
+#ifdef KLEE_VERIFICATION
         map_progs_xdp[FAST_PROG_XDP_HANDLE_PREPARE](ctx);
+#else
+        bpf_tail_call(ctx, &map_progs_xdp, FAST_PROG_XDP_HANDLE_PREPARE);
+#endif
         return XDP_PASS;
     }
 #endif
@@ -268,9 +278,12 @@ int fastPaxos_main(struct xdp_md *ctx)
         if (context)
         {
             *context = (void *)payload + typeLen - data;
-            bpf_xdp_adjust_head(ctx, *context);
-            // bpf_tail_call(ctx, map_progs_xdp, FAST_PROG_XDP_HANDLE_PREPAREOK);
+            // bpf_xdp_adjust_head(ctx, *context);
+#ifdef KLEE_VERIFICATION
             map_progs_xdp[FAST_PROG_XDP_HANDLE_PREPAREOK](ctx);
+#else
+            bpf_tail_call(ctx, &map_progs_xdp, FAST_PROG_XDP_HANDLE_PREPAREOK);
+#endif
         }
         return XDP_PASS;
     }
@@ -283,9 +296,12 @@ int fastPaxos_main(struct xdp_md *ctx)
         if (context)
         {
             *context = (void *)payload + typeLen - data;
-            bpf_xdp_adjust_head(ctx, *context);
-            // bpf_tail_call(ctx, map_progs_xdp, FAST_PROG_XDP_HANDLE_PREPAREOK);
+            // bpf_xdp_adjust_head(ctx, *context);
+#ifdef KLEE_VERIFICATION
             map_progs_xdp[FAST_PROG_XDP_HANDLE_PREPAREOK](ctx);
+#else
+            bpf_tail_call(ctx, &map_progs_xdp, FAST_PROG_XDP_HANDLE_PREPAREOK);
+#endif
         }
         return XDP_PASS;
     }
@@ -303,7 +319,7 @@ int fastPaxos_main(struct xdp_md *ctx)
 }
 
 // This function will not be called, ignore.
-SEC("HandleRequest")
+SEC("xdp")
 int HandleRequest_main(struct xdp_md *ctx)
 {
     void *data_end = (void *)(long)ctx->data_end;
@@ -335,23 +351,23 @@ int HandleRequest_main(struct xdp_md *ctx)
     if (payload + REQ_MAX_DATA_LEN < data_end)
         return XDP_PASS;
 
-    char *pt = bpf_ringbuf_reserve(&map_request_buffer, REQ_MAX_DATA_LEN + sizeof(__u16) + sizeof(__u32), 0);
-    if (pt)
-    {
-        *(__u16 *)pt = udp->source;
-        pt += sizeof(__u16);
-        *(__u32 *)pt = ip->saddr;
-        pt += sizeof(__u32);
+    // char *pt = bpf_ringbuf_reserve(&map_request_buffer, REQ_MAX_DATA_LEN + sizeof(__u16) + sizeof(__u32), 0);
+    // if (pt)
+    // {
+    //     *(__u16 *)pt = udp->source;
+    //     pt += sizeof(__u16);
+    //     *(__u32 *)pt = ip->saddr;
+    //     pt += sizeof(__u32);
 
-        for (int i = 0; i < REQ_MAX_DATA_LEN; ++i)
-            if (payload + i + 1 <= data_end)
-                pt[i] = payload[i];
-        bpf_ringbuf_submit(pt - sizeof(__u16) - sizeof(__u32), 0);
-    }
+    //     for (int i = 0; i < REQ_MAX_DATA_LEN; ++i)
+    //         if (payload + i + 1 <= data_end)
+    //             pt[i] = payload[i];
+    //     bpf_ringbuf_submit(pt - sizeof(__u16) - sizeof(__u32), 0);
+    // }
     return XDP_DROP;
 }
 
-SEC("HandlePrepareOK")
+SEC("xdp")
 int HandlePrepareOK_main(struct xdp_md *ctx)
 {
     // now data points to `fastPaxos header`.
@@ -381,12 +397,12 @@ int HandlePrepareOK_main(struct xdp_md *ctx)
     // asd123www: may change buffering here in the future.
     __u32 zero = 0;
     __u64 *context = bpf_map_lookup_elem(&map_msg_lastOp, &zero);
-    if (context)
-        bpf_xdp_adjust_head(ctx, -((int)*context));
+    // if (context)
+    //     bpf_xdp_adjust_head(ctx, -((int)*context));
     return XDP_PASS;
 }
 
-SEC("HandlePrepare")
+SEC("xdp")
 int HandlePrepare_main(struct xdp_md *ctx)
 {
     void *data_end = (void *)(long)ctx->data_end;
@@ -420,8 +436,11 @@ int HandlePrepare_main(struct xdp_md *ctx)
     // Resend the prepareOK message
     if (msg_lastOp <= ctr_state->lastOp)
     {
-        // bpf_tail_call(ctx, map_progs_xdp, FAST_PROG_XDP_PREPARE_REPLY);
+#ifdef KLEE_VERIFICATION
         map_progs_xdp[FAST_PROG_XDP_PREPARE_REPLY](ctx);
+#else
+        bpf_tail_call(ctx, &map_progs_xdp, FAST_PROG_XDP_PREPARE_REPLY);
+#endif
         return XDP_PASS;
     }
     // rare case, to user-space.
@@ -431,13 +450,16 @@ int HandlePrepare_main(struct xdp_md *ctx)
 
     *context = msg_lastOp;
     ctr_state->lastOp = msg_lastOp;
-    // bpf_tail_call(ctx, map_progs_xdp, FAST_PROG_XDP_WRITE_BUFFER);
+#ifdef KLEE_VERIFICATION
     map_progs_xdp[FAST_PROG_XDP_WRITE_BUFFER](ctx);
+#else
+    bpf_tail_call(ctx, &map_progs_xdp, FAST_PROG_XDP_WRITE_BUFFER);
+#endif
     return XDP_PASS;
 }
 
 // currently we don't support reassembly, modify this in future if we want.
-SEC("WriteBuffer")
+SEC("xdp")
 int WriteBuffer_main(struct xdp_md *ctx)
 {
     void *data_end = (void *)(long)ctx->data_end;
@@ -451,20 +473,23 @@ int WriteBuffer_main(struct xdp_md *ctx)
 
     // buffer not enough, offload to user-space.
     // It's easy to avoid cause VR sends `CommitMessage` make followers keep up with the leader.
-    char *pt = bpf_ringbuf_reserve(&map_prepare_buffer, MAX_DATA_LEN, 0);
-    if (pt)
-    {
-        for (int i = 0; i < MAX_DATA_LEN; ++i)
-            if (payload + i + 1 <= data_end)
-                pt[i] = payload[i];
-        bpf_ringbuf_submit(pt, 0); // guarantee to succeed.
-        // bpf_tail_call(ctx, map_progs_xdp, FAST_PROG_XDP_PREPARE_REPLY);
-        map_progs_xdp[FAST_PROG_XDP_PREPARE_REPLY](ctx);
-    }
+    // char *pt = bpf_ringbuf_reserve(&map_prepare_buffer, MAX_DATA_LEN, 0);
+    // if (pt)
+    // {
+    //     for (int i = 0; i < MAX_DATA_LEN; ++i)
+    //         if (payload + i + 1 <= data_end)
+    //             pt[i] = payload[i];
+    //     bpf_ringbuf_submit(pt, 0); // guarantee to succeed.
+    // #ifdef KLEE_VERIFICATION
+    //     map_progs_xdp[FAST_PROG_XDP_PREPARE_REPLY](ctx);
+    // #else
+    //     bpf_tail_call(ctx, &map_progs_xdp, FAST_PROG_XDP_PREPARE_REPLY);
+    // #endif
+    // }
     return XDP_PASS;
 }
 
-SEC("PrepareFastReply")
+SEC("xdp")
 int PrepareFastReply_main(struct xdp_md *ctx)
 {
     void *data_end = (void *)(long)ctx->data_end;
@@ -531,131 +556,8 @@ int PrepareFastReply_main(struct xdp_md *ctx)
     memcpy(eth->h_source, eth->h_dest, ETH_ALEN);
     memcpy(eth->h_dest, tmp_mac, ETH_ALEN);
 
-    bpf_xdp_adjust_tail(ctx, (void *)payload - data_end);
+    // bpf_xdp_adjust_tail(ctx, (void *)payload - data_end);
     return XDP_TX;
 }
-
-// SEC("FastBroadCast")
-// int FastBroadCast_main(struct __sk_buff *skb)
-// {
-//     void *data_end = (void *)(long)skb->data_end;
-//     void *data = (void *)(long)skb->data;
-//     struct ethhdr *eth = data;
-//     struct iphdr *ip = data + sizeof(struct ethhdr);
-//     struct udphdr *udp = data + sizeof(struct ethhdr) + sizeof(struct iphdr);
-//     char *payload = data + sizeof(struct ethhdr) + sizeof(struct iphdr) + sizeof(struct udphdr);
-
-//     if (ip + 1 > data_end)
-//         return TC_ACT_OK;
-//     if (ip->protocol != IPPROTO_UDP)
-//         return TC_ACT_OK;
-//     if (udp + 1 > data_end)
-//         return TC_ACT_OK;
-//     if (udp->source != htons(12345))
-//         return TC_ACT_OK; // not Paxos packet.
-
-//     if (payload + MAGIC_LEN > data_end)
-//         return TC_ACT_OK; // don't have magic bits...
-//     if (payload[0] != 0x18 || payload[1] != 0x03 || payload[2] != 0x05 || payload[3] != 0x20)
-//         return TC_ACT_OK;
-//     payload = payload + MAGIC_LEN;
-//     if (payload + sizeof(__u64) > data_end)
-//         return TC_ACT_OK; // don't have typelen...
-//     __u64 typeLen = *(__u64 *)payload;
-//     payload = payload + sizeof(__u64);
-//     char *type_str = payload;
-//     if (type_str + 5 >= data_end)
-//         return TC_ACT_OK;
-//     if (typeLen >= MTU || payload + typeLen > data_end)
-//         return TC_ACT_OK; // don't have type str...
-//     payload += typeLen;
-//     if (payload + FAST_PAXOS_DATA_LEN > data_end)
-//         return TC_ACT_OK;
-
-//     __u32 msg_view = *(__u32 *)payload;
-//     __u32 is_broadcast = msg_view & BROADCAST_SIGN_BIT;
-//     msg_view ^= is_broadcast;
-//     __u32 msg_lastOp = *((__u32 *)payload + 1);
-//     int msg_type = compute_message_type(type_str, data_end);
-
-//     if (msg_type == FAST_PROG_XDP_HANDLE_PREPARE)
-//     { // clear bitset entry.
-//         __u32 idx = msg_lastOp & (QUORUM_BITSET_ENTRY - 1);
-//         struct paxos_quorum *entry = bpf_map_lookup_elem(&map_quorum, &idx);
-//         if (entry)
-//         {
-//             if (entry->view != msg_view || entry->opnum != msg_lastOp)
-//             {
-//                 entry->view = msg_view;
-//                 entry->opnum = msg_lastOp;
-//                 entry->bitset = 0;
-//             }
-//         }
-//     }
-
-//     if (!is_broadcast)
-//         return TC_ACT_OK;
-
-//     __u32 zero = 0;
-//     struct paxos_ctr_state *ctr_state = bpf_map_lookup_elem(&map_ctr_state, &zero);
-//     if (!ctr_state)
-//         return TC_ACT_OK; // can't find the context...
-
-//     char id, nxt;
-//     if (type_str[0] == 's' && type_str[1] == 'p')
-//     {
-//         id = !ctr_state->leaderIdx;
-
-//         nxt = id + 1;
-//         nxt += ctr_state->leaderIdx == nxt;
-//         type_str[0] = nxt;
-//         type_str[1] = 'M'; // sign for multicast.
-//         if (nxt < CLUSTER_SIZE)
-//             bpf_clone_redirect(skb, skb->ifindex, 0);
-//     }
-//     else
-//     {
-//         id = type_str[0];
-
-//         nxt = id + 1;
-//         nxt += ctr_state->leaderIdx == nxt;
-//         type_str[0] = nxt;
-//         if (nxt < CLUSTER_SIZE)
-//             bpf_clone_redirect(skb, skb->ifindex, 0);
-//     }
-
-//     // Why so verbose? `bpf_clone_redirect` may change buffer — from linux manual.
-//     data_end = (void *)(long)skb->data_end;
-//     data = (void *)(long)skb->data;
-//     eth = data;
-//     ip = data + sizeof(struct ethhdr);
-//     udp = data + sizeof(struct ethhdr) + sizeof(struct iphdr);
-//     payload = data + sizeof(struct ethhdr) + sizeof(struct iphdr) + sizeof(struct udphdr) + MAGIC_LEN;
-//     if (payload + sizeof(__u64) > data_end)
-//         return TC_ACT_OK; // don't have typelen...
-//     typeLen = *(__u64 *)payload;
-//     payload = payload + sizeof(__u64);
-//     type_str = payload;
-//     if (type_str + 5 >= data_end)
-//         return TC_ACT_SHOT;
-//     if (typeLen >= MTU || payload + typeLen > data_end)
-//         return TC_ACT_SHOT; // don't have type str...
-//     payload += typeLen;
-//     if (payload + FAST_PAXOS_DATA_LEN > data_end)
-//         return TC_ACT_SHOT;
-
-//     *(__u32 *)payload = msg_view;
-//     type_str[0] = 's', type_str[1] = 'p';
-//     struct paxos_configure *replicaInfo = bpf_map_lookup_elem(&map_configure, &id);
-//     if (!replicaInfo)
-//         return TC_ACT_SHOT;
-//     udp->dest = replicaInfo->port;
-//     udp->check = 0;
-//     ip->daddr = replicaInfo->addr;
-//     ip->check = compute_ip_checksum(ip);
-//     memcpy(eth->h_dest, replicaInfo->eth, ETH_ALEN);
-
-//     return TC_ACT_OK;
-// }
 
 char _license[] SEC("license") = "GPL";

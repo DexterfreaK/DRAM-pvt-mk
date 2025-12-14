@@ -231,7 +231,7 @@ verify-map-policy: $(XDP_C) Makefile $(KERN_USER_H) $(EXTRA_DEPS)
 		-verification=true -map-access-control-file=$(MAP_CONFIG_PATH) $(XDP_TARGETS).bc
 
 verify-object-code: $(OBJECT_FILE_PATH)
-	$(LIFTING_TOOLS_DIR)/generateIR.py $(OBJECT_FILE_PATH) $(MAIN_FUNC_NAME)
+	$(LIFTING_TOOLS_DIR)/generateIR.py $(OBJECT_FILE_PATH) $(MAIN_FUNC_NAME) $(PROGRAM_CONFIG)
 	llvm-dis -show-annotations final_linked_ir.bc
 	klee -kdalloc -kdalloc-heap-start-address=0x00040000000 -kdalloc-heap-size=1 -libc=uclibc --external-calls=all --disable-verify \
 		-solver-backend=z3 --exit-on-error -max-memory=750000 -search=dfs -single-object-resolution=true \

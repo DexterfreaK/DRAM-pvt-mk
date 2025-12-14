@@ -1,0 +1,9 @@
+The current project is some kind of ebpf userspace verification where the input is the object code of the ebpf program. After getting the ebpf object code the bytecode is lifted to IR using the bpflifter which dumps a llvm IR and some meta info like maps and program present in the IR. using this info and by parsing the elf we create other required files that shows parts of the code were we need to replace maps calls from id to name etc.
+
+The meta info is used to generate a template executor program using the drace_template.j2 which is python jinja template. We add maps, dumy call to them, func definition and how to call the main ebpf program. 
+
+Other part of the flow includes the llvm func_pass on lifted IR that modifies the IR to be compatible to be linked with the executor code, like removing the .toreplace calls with the proper name of the helper function. properly defining the ebpf maps based on their name and type and replacing the call instruction with proper function calls.
+
+These two parts are then combined and built into one IR that is ready to run on KLEE.
+
+We use stubb implementation of the helper functio from the ebpf-se in order to mimic the helper function in the userspace.

@@ -35,7 +35,7 @@ private:
 
 public:
     PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM) {
-        // 1) Create struct.bpf_map_def type
+        // 1) Create struct.bpf_map_def type : [Need to accomodate all types of maps here]
         StructType *bpfMapDefType = StructType::create(
             M.getContext(),
             {
@@ -122,6 +122,7 @@ private:
     }
 
     void createMapDefinitions(Module &M, StructType *bpfMapDefType) {
+        // [TODO: Support all types of maps]
         std::unordered_set<std::string> mapNames;
         for (const auto &entry : mapIdToName) {
             int mapId = entry.first;
@@ -229,8 +230,9 @@ private:
                         return;
                     }
 
+                    // bpf_tail_call returns i64 (long)
                     FunctionType *tailCallFuncType = FunctionType::get(
-                        Type::getInt8PtrTy(M.getContext()),
+                        Type::getInt64Ty(M.getContext()),
                         {Type::getInt8PtrTy(M.getContext()), Type::getInt8PtrTy(M.getContext()), Type::getInt32Ty(M.getContext())},
                         false
                     );
@@ -253,13 +255,8 @@ private:
                         ctxptr = Builder.CreateBitCast(ctxArg, Type::getInt8PtrTy(M.getContext()), "ctx_ptr");
                     }
 
-                    // Convert progArrayMapArg to pointer if it's an integer
-                    Value* progArrayMapPtr;
-                    if (progArrayMapArg->getType()->isIntegerTy()) {
-                        progArrayMapPtr = Builder.CreateIntToPtr(progArrayMapArg, Type::getInt8PtrTy(M.getContext()), "prog_array_map_ptr");
-                    } else {
-                        progArrayMapPtr = Builder.CreateBitCast(progArrayMapArg, Type::getInt8PtrTy(M.getContext()), "prog_array_map_ptr");
-                    }
+                    // Use the actual map global variable, not the map ID
+                    Value* progArrayMapPtr = Builder.CreateBitCast(mapGV, Type::getInt8PtrTy(M.getContext()), "prog_array_map_ptr");
 
                     // Convert indexArg from i64 to i32 if necessary
                     Value* indexValue;
@@ -269,16 +266,16 @@ private:
                         indexValue = indexArg;
                     }
 
-                    CallInst *newCall = Builder.CreateCall(tailCallFunc, {ctxptr, progArrayMapPtr, indexValue}, "result_ptr");
-                    Value *result = Builder.CreatePtrToInt(newCall, Type::getInt64Ty(M.getContext()));
-                    oldCall->replaceAllUsesWith(result);
+                    CallInst *newCall = Builder.CreateCall(tailCallFunc, {ctxptr, progArrayMapPtr, indexValue}, "tail_call_result");
+                    oldCall->replaceAllUsesWith(newCall);
                     oldCall->eraseFromParent();
                 } else {
                     // Unknown program array map ID - still replace with direct pointer
                     std::cout << "  Warning: Tail call map ID " << mapId << " not found in relocation table\n";
                     
+                    // bpf_tail_call returns i64 (long)
                     FunctionType *tailCallFuncType = FunctionType::get(
-                        Type::getInt8PtrTy(M.getContext()),
+                        Type::getInt64Ty(M.getContext()),
                         {Type::getInt8PtrTy(M.getContext()), Type::getInt8PtrTy(M.getContext()), Type::getInt32Ty(M.getContext())},
                         false
                     );
@@ -304,9 +301,8 @@ private:
                         indexValue = indexArg;
                     }
 
-                    CallInst *newCall = Builder.CreateCall(tailCallFunc, {ctxptr, progArrayMapPtr, indexValue}, "result_ptr");
-                    Value *result = Builder.CreatePtrToInt(newCall, Type::getInt64Ty(M.getContext()));
-                    oldCall->replaceAllUsesWith(result);
+                    CallInst *newCall = Builder.CreateCall(tailCallFunc, {ctxptr, progArrayMapPtr, indexValue}, "tail_call_result");
+                    oldCall->replaceAllUsesWith(newCall);
                     oldCall->eraseFromParent();
                 }
             }
@@ -463,9 +459,9 @@ PassPluginLibraryInfo getModulePassPluginInfo() {
     };
 }
 
+} // namespace llvm
+
 extern "C" LLVM_ATTRIBUTE_WEAK ::llvm::PassPluginLibraryInfo
 llvmGetPassPluginInfo() {
-    return getModulePassPluginInfo();
+    return llvm::getModulePassPluginInfo();
 }
-
-} // namespace llvm

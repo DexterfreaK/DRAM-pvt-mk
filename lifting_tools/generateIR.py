@@ -30,10 +30,28 @@ def run_cmd(cmd, description, capture_output=True, check=True):
     return result
 
 object_file = sys.argv[1]
-prog_name   = sys.argv[2] if len(sys.argv) > 3 else ""   # Name of the leader program that will be called
+
+# Parse remaining arguments - detect if arg is a yaml file or a function name
+prog_name = ""
+program_config_path = ""
+for arg in sys.argv[2:]:
+    if arg.endswith('.yaml') or arg.endswith('.yml'):
+        program_config_path = arg
+    elif arg.strip():  # Non-empty, non-yaml is treated as function name
+        prog_name = arg
+
 if not os.path.exists(object_file):
     print(f"Path : {object_file} does not exist")
     exit(1)
+
+# Load program config if provided
+program_config = None
+if program_config_path and os.path.exists(program_config_path):
+    with open(program_config_path, 'r') as f:
+        program_config = yaml.safe_load(f)
+    print(f"Loaded program config: {program_config_path}")
+elif program_config_path:
+    print(f"WARNING: Program config file not found: {program_config_path}")
 
 
 ##### Step-1 Lift the object file using bpf_lifter and store in temp file along with metadata
@@ -70,12 +88,45 @@ def gen_reloc_dump(elf, dump_dir) -> bool:
         print("[relocation data] (hex) :", relxdp_data.hex())
         num_entries = relxdp_section.num_relocations()
         print(f"Number of relocation entries in .relxdp: {num_entries}")
+        
+        # Extract function start addresses from xdp section symbols
+        func_offsets = []
+        for i in range(symtab.num_symbols()):
+            sym = symtab.get_symbol(i)
+            # Check if symbol is a function in xdp section
+            if sym['st_info']['type'] == 'STT_FUNC':
+                func_offsets.append(int(sym['st_value']))
+        func_offsets.sort()
+        print(f"Function start offsets: {func_offsets}")
+        
+        # Collect all relocations
+        relocations = []
+        global_offsets = set()  # Track global offsets to avoid overwriting
+        for reloc in relxdp_section.iter_relocations():
+            offset = int(reloc['r_offset'])
+            sym_index = reloc['r_info_sym']
+            symbol = symtab.get_symbol(sym_index)
+            relocations.append((offset, str(symbol.name)))
+            global_offsets.add(offset)
+        
         with open(os.path.join(dump_dir,"map_offset_mapping"), 'w') as dump_file:
-            for reloc in relxdp_section.iter_relocations():
-                offset = reloc['r_offset']
-                sym_index = reloc['r_info_sym']
-                symbol = symtab.get_symbol(sym_index)
-                dump_file.write(f"{int(offset)},{str(symbol.name)}\n")
+            # Write global offset mappings first
+            for offset, map_name in relocations:
+                dump_file.write(f"{offset},{map_name}\n")
+            
+            # For each relocation, also write local offsets relative to each function
+            # The bpflifter uses local offsets within functions, so we need to map those too
+            # BUT only if the local offset doesn't conflict with a global offset
+            for global_offset, map_name in relocations:
+                for func_start in func_offsets:
+                    if func_start > 0 and global_offset > func_start:
+                        local_offset = global_offset - func_start
+                        # Only add if this local offset doesn't conflict with a global offset
+                        if local_offset not in global_offsets:
+                            dump_file.write(f"{local_offset},{map_name}\n")
+                            print(f"  Added local offset: {local_offset} (global {global_offset} - func {func_start}) -> {map_name}")
+                        else:
+                            print(f"  Skipped local offset {local_offset} (conflicts with global offset)")
         return True
 
 do_relocate = gen_reloc_dump(object_file, temp_dir)
@@ -111,29 +162,60 @@ def generate_code(config, template_path='.', template_filename='draco_template.j
     with open(output_path, 'w') as f:
         f.write(rendered)
 
-def generate_config(dir):
+def generate_config(dir, program_config=None):
     config = {}
-    with open(os.path.join(dir,"prog_dump"),'r') as f:
-        names = [n.strip() for n in f.readlines() if n.strip()]
-        func_name = prog_name if prog_name in names else names[0]
-        config["extern_func"] = str(func_name)
+    
+    # Read all program names from prog_dump
+    with open(os.path.join(dir, "prog_dump"), 'r') as f:
+        all_progs = [n.strip() for n in f.readlines() if n.strip()]
+    config["all_progs"] = all_progs
+    func_name = prog_name if prog_name in all_progs else (all_progs[0] if all_progs else "")
+    config["extern_func"] = str(func_name)
+    
+    # Get tailcall config if available
+    tailcalls_config = {}
+    if program_config and "tailcalls" in program_config:
+        tailcalls_config = program_config["tailcalls"]
     
     config["maps"] = []
-    with open(os.path.join(dir,"map_dump"), 'r') as f:
+    with open(os.path.join(dir, "map_dump"), 'r') as f:
         for line in f:
             if line.strip():
                 info = line.strip().split(',')
-                config["maps"].append({
-                    "name": info[0], "type": int(info[1]), "key_size": int(info[2]),
-                    "value_size": int(info[3]), "max_entries": int(info[4]),
-                    "ops": ["lookup","update","delete"]
-                })
+                map_name = info[0]
+                map_type = int(info[1])
+                
+                map_entry = {
+                    "name": map_name,
+                    "type": map_type,
+                    "key_size": int(info[2]),
+                    "value_size": int(info[3]),
+                    "max_entries": int(info[4]),
+                    "ops": ["lookup", "update", "delete"],
+                    "is_prog_array": (map_type == 3)  # BPF_MAP_TYPE_PROG_ARRAY
+                }
+                
+                # Add tailcall entries if this is a prog_array with config
+                if map_entry["is_prog_array"] and map_name in tailcalls_config:
+                    entries = tailcalls_config[map_name]
+                    # Validate function names against prog_dump
+                    for entry in entries:
+                        if entry["function"] not in all_progs:
+                            print(f"WARNING: Tailcall function '{entry['function']}' not found in prog_dump")
+                    map_entry["tailcall_entries"] = entries
+                    print(f"Added {len(entries)} tailcall entries for map '{map_name}'")
+                
+                config["maps"].append(map_entry)
     return config
 
-config = generate_config(temp_dir)
+config = generate_config(temp_dir, program_config)
 gen_cpp_path = os.path.join(temp_dir, "cpp_generated_code.c")
 generate_code(config=config, template_path="/home/anakin/DRACO-pvt/lifting_tools", output_path=gen_cpp_path)
 print(f"Function: {config['extern_func']}, Maps: {len(config['maps'])}")
+# Show prog_array maps with tailcall entries
+for m in config['maps']:
+    if m.get('tailcall_entries'):
+        print(f"  - {m['name']}: {len(m['tailcall_entries'])} tailcall entries")
 
 
 ##### Step-5 compile template

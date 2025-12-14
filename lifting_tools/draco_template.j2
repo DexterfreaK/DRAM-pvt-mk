@@ -24,6 +24,19 @@
 #endif
     {% endif %}
 {% endfor %}
+
+{# Check if any map has tailcall entries #}
+{% set has_tailcall = namespace(value=false) %}
+{% for map in maps %}
+    {% if map.tailcall_entries %}
+        {% set has_tailcall.value = true %}
+    {% endif %}
+{% endfor %}
+{% if has_tailcall.value %}
+#ifndef USES_BPF_TAIL_CALL
+#define USES_BPF_TAIL_CALL
+#endif
+{% endif %}
 {% endif %}
 
 #include <linux/bpf.h>
@@ -37,14 +50,30 @@ struct __attribute__((__packed__)) pkt {
     char payload[1500];
 };
 
-
+{# Typedef and extern declarations for tailcall functions #}
+{% if has_tailcall.value %}
+typedef int (*xdp_func_ptr)(struct xdp_md *);
 {% for map in maps %}
+{% if map.tailcall_entries %}
+{% for entry in map.tailcall_entries %}
+extern int {{ entry.function }}(struct xdp_md *ctx);
+{% endfor %}
+{% endif %}
+{% endfor %}
+{% endif %}
+
+{# Map definitions - handle prog_array maps specially #}
+{% for map in maps %}
+{% if map.is_prog_array and map.tailcall_entries %}
+xdp_func_ptr {{ map.name }}[{{ map.max_entries }}];
+{% else %}
 struct bpf_map_def SEC(".maps") {{ map.name }} = {
     .type = {{ map.type }},
     .key_size = {{ map.key_size }},
     .value_size = {{ map.value_size }},
     .max_entries = {{ map.max_entries }},
 };
+{% endif %}
 {% endfor %}
 
 struct bpf_map_def SEC(".maps") _liftingtools_dummymap = {
@@ -59,6 +88,7 @@ SEC("xdp") extern int {{ extern_func }}(struct xdp_md *ctx);
 SEC("xdp")
 int _liftingtools_temp_xdp_main(struct xdp_md *ctx) {
     {% for map in maps %}
+    {% if not map.is_prog_array %}
         {% if 'lookup' in map.ops %}
     __u32 {{ map.name }}_key = 0;
     void* {{ map.name }}_val = bpf_map_lookup_elem(&_liftingtools_dummymap, &{{ map.name }}_key);
@@ -72,6 +102,11 @@ int _liftingtools_temp_xdp_main(struct xdp_md *ctx) {
     __u32 {{ map.name }}_delete_key = 0;
     bpf_map_delete_elem(&_liftingtools_dummymap, &{{ map.name }}_delete_key);
         {% endif %}
+    {% endif %}
+    {% if map.tailcall_entries %}
+    __u32 {{ map.name }}_tailcall_idx = 0;
+    bpf_tail_call(ctx, {{ map.name }}, {{ map.name }}_tailcall_idx);
+    {% endif %}
     {% endfor %}
     return XDP_PASS;
 }
@@ -81,8 +116,15 @@ int _liftingtools_temp_xdp_main(struct xdp_md *ctx) {
 #include "../../verification_tools/verification_helpers.h"
 #include <stdlib.h>
 int main() {
+    {# Initialize prog_array maps with function pointers #}
     {% for map in maps %}
+    {% if map.is_prog_array and map.tailcall_entries %}
+    {% for entry in map.tailcall_entries %}
+    {{ map.name }}[{{ entry.index }}] = {{ entry.function }};
+    {% endfor %}
+    {% else %}
     BPF_MAP_INIT(&{{ map.name }}, "{{ map.name }}", "", "");
+    {% endif %}
     {% endfor %}
     
     // Context initialization
