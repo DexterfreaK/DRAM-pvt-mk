@@ -37,6 +37,19 @@
 #define USES_BPF_TAIL_CALL
 #endif
 {% endif %}
+
+{# Check if any map is a ringbuf (type 27) #}
+{% set has_ringbuf = namespace(value=false) %}
+{% for map in maps %}
+    {% if map.type == 27 %}
+        {% set has_ringbuf.value = true %}
+    {% endif %}
+{% endfor %}
+{% if has_ringbuf.value %}
+#ifndef USES_BPF_RINGBUF
+#define USES_BPF_RINGBUF
+#endif
+{% endif %}
 {% endif %}
 
 #include <linux/bpf.h>
@@ -62,10 +75,16 @@ extern int {{ entry.function }}(struct xdp_md *ctx);
 {% endfor %}
 {% endif %}
 
-{# Map definitions - handle prog_array maps specially #}
+{# Map definitions - handle prog_array and ringbuf maps specially #}
 {% for map in maps %}
 {% if map.is_prog_array and map.tailcall_entries %}
 xdp_func_ptr {{ map.name }}[{{ map.max_entries }}];
+{% elif map.type == 27 %}
+{# Ringbuf maps only have type and max_entries #}
+struct bpf_map_def SEC(".maps") {{ map.name }} = {
+    .type = {{ map.type }},
+    .max_entries = {{ map.max_entries }},
+};
 {% else %}
 struct bpf_map_def SEC(".maps") {{ map.name }} = {
     .type = {{ map.type }},
@@ -88,7 +107,13 @@ SEC("xdp") extern int {{ extern_func }}(struct xdp_md *ctx);
 SEC("xdp")
 int _liftingtools_temp_xdp_main(struct xdp_md *ctx) {
     {% for map in maps %}
-    {% if not map.is_prog_array %}
+    {% if map.type == 27 %}
+    {# Ringbuf map operations #}
+    void *{{ map.name }}_ptr = bpf_ringbuf_reserve(&{{ map.name }}, 64, 0);
+    if ({{ map.name }}_ptr) {
+        bpf_ringbuf_submit({{ map.name }}_ptr, 0);
+    }
+    {% elif not map.is_prog_array %}
         {% if 'lookup' in map.ops %}
     __u32 {{ map.name }}_key = 0;
     void* {{ map.name }}_val = bpf_map_lookup_elem(&_liftingtools_dummymap, &{{ map.name }}_key);
@@ -122,6 +147,9 @@ int main() {
     {% for entry in map.tailcall_entries %}
     {{ map.name }}[{{ entry.index }}] = {{ entry.function }};
     {% endfor %}
+    {% elif map.type == 27 %}
+    {# Ringbuf maps initialization #}
+    BPF_MAP_INIT(&{{ map.name }}, "{{ map.name }}", "", "");
     {% else %}
     BPF_MAP_INIT(&{{ map.name }}, "{{ map.name }}", "", "");
     {% endif %}

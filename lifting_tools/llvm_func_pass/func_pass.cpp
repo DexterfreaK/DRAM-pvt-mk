@@ -172,6 +172,19 @@ private:
                             if (CalledF->getName() == "bpf_tail_call.toreplace") {
                                 CallsToReplace.push_back({CI,"bpf_tail_call"});
                             }
+                            // Ringbuf helper functions
+                            if (CalledF->getName() == "bpf_ringbuf_reserve.toreplace") {
+                                CallsToReplace.push_back({CI,"bpf_ringbuf_reserve"});
+                            }
+                            if (CalledF->getName() == "bpf_ringbuf_submit.toreplace") {
+                                CallsToReplace.push_back({CI,"bpf_ringbuf_submit"});
+                            }
+                            if (CalledF->getName() == "bpf_ringbuf_discard.toreplace") {
+                                CallsToReplace.push_back({CI,"bpf_ringbuf_discard"});
+                            }
+                            if (CalledF->getName() == "bpf_ringbuf_output.toreplace") {
+                                CallsToReplace.push_back({CI,"bpf_ringbuf_output"});
+                            }
                         }
                     }
                 }
@@ -210,6 +223,152 @@ private:
 
     void replaceMapLookupDelete(CallInst *oldCall, Module &M, std::string func_name, std::string& func_type) {
         IRBuilder<> Builder(oldCall);
+
+        // Handle ringbuf_submit and ringbuf_discard - these don't need map resolution
+        // They take the reserved pointer as first argument, not the map
+        if (func_type.compare("bpf_ringbuf_submit") == 0 || func_type.compare("bpf_ringbuf_discard") == 0) {
+            std::cout << "ringbuf submit/discard" << std::endl;
+            Value *dataArg = oldCall->getArgOperand(0);
+            Value *flagsArg = oldCall->getArgOperand(1);
+
+            // void bpf_ringbuf_submit(void *data, __u64 flags)
+            FunctionType *funcType = FunctionType::get(
+                Type::getVoidTy(M.getContext()),
+                {Type::getInt8PtrTy(M.getContext()), Type::getInt64Ty(M.getContext())},
+                false
+            );
+
+            Function *ringbufFunc = M.getFunction(func_name);
+            if (!ringbufFunc) {
+                ringbufFunc = Function::Create(funcType, Function::ExternalLinkage, func_name, M);
+            }
+
+            Value *dataPtr;
+            if (dataArg->getType()->isIntegerTy()) {
+                dataPtr = Builder.CreateIntToPtr(dataArg, Type::getInt8PtrTy(M.getContext()), "data_ptr");
+            } else {
+                dataPtr = Builder.CreateBitCast(dataArg, Type::getInt8PtrTy(M.getContext()), "data_ptr");
+            }
+
+            Value *flags;
+            if (flagsArg->getType()->isIntegerTy(64)) {
+                flags = flagsArg;
+            } else {
+                flags = Builder.CreateZExt(flagsArg, Type::getInt64Ty(M.getContext()), "flags_i64");
+            }
+
+            Builder.CreateCall(ringbufFunc, {dataPtr, flags});
+            // These functions return void, so just erase the old call
+            oldCall->eraseFromParent();
+            return;
+        }
+
+        // Handle ringbuf_reserve - takes (map, size, flags), returns void*
+        if (func_type.compare("bpf_ringbuf_reserve") == 0) {
+            std::cout << "ringbuf reserve" << std::endl;
+            Value *mapIdArg = oldCall->getArgOperand(0);
+            Value *sizeArg = oldCall->getArgOperand(1);
+            Value *flagsArg = oldCall->getArgOperand(2);
+
+            if (ConstantInt *CI = dyn_cast<ConstantInt>(mapIdArg)) {
+                int mapId = CI->getSExtValue();
+                std::cout << "Found ringbuf_reserve with map ID: " << mapId << "\n";
+
+                auto it = mapIdToName.find(mapId);
+                if (it != mapIdToName.end()) {
+                    std::cout << "  Mapped to map name: " << it->second << "\n";
+                    std::string mapName = it->second;
+
+                    GlobalVariable *mapGV = M.getGlobalVariable(mapName);
+                    if (!mapGV) {
+                        std::cout << "  Error: Map global variable not found: " << mapName << "\n";
+                        return;
+                    }
+
+                    // void* bpf_ringbuf_reserve(void *ringbuf, __u64 size, __u64 flags)
+                    FunctionType *funcType = FunctionType::get(
+                        Type::getInt8PtrTy(M.getContext()),
+                        {Type::getInt8PtrTy(M.getContext()), Type::getInt64Ty(M.getContext()), Type::getInt64Ty(M.getContext())},
+                        false
+                    );
+
+                    Function *ringbufFunc = M.getFunction(func_name);
+                    if (!ringbufFunc) {
+                        ringbufFunc = Function::Create(funcType, Function::ExternalLinkage, func_name, M);
+                    }
+
+                    Value *mapPtr = Builder.CreateBitCast(mapGV, Type::getInt8PtrTy(M.getContext()), mapName + "_ptr");
+                    
+                    Value *size = sizeArg->getType()->isIntegerTy(64) ? sizeArg : 
+                        Builder.CreateZExt(sizeArg, Type::getInt64Ty(M.getContext()), "size_i64");
+                    Value *flags = flagsArg->getType()->isIntegerTy(64) ? flagsArg :
+                        Builder.CreateZExt(flagsArg, Type::getInt64Ty(M.getContext()), "flags_i64");
+
+                    CallInst *newCall = Builder.CreateCall(ringbufFunc, {mapPtr, size, flags}, "ringbuf_ptr");
+                    Value *result = Builder.CreatePtrToInt(newCall, Type::getInt64Ty(M.getContext()));
+                    oldCall->replaceAllUsesWith(result);
+                    oldCall->eraseFromParent();
+                } else {
+                    std::cout << "  Warning: Map ID " << mapId << " not found for ringbuf_reserve\n";
+                }
+            }
+            return;
+        }
+
+        // Handle ringbuf_output - takes (map, data, size, flags), returns long
+        if (func_type.compare("bpf_ringbuf_output") == 0) {
+            std::cout << "ringbuf output" << std::endl;
+            Value *mapIdArg = oldCall->getArgOperand(0);
+            Value *dataArg = oldCall->getArgOperand(1);
+            Value *sizeArg = oldCall->getArgOperand(2);
+            Value *flagsArg = oldCall->getArgOperand(3);
+
+            if (ConstantInt *CI = dyn_cast<ConstantInt>(mapIdArg)) {
+                int mapId = CI->getSExtValue();
+                std::cout << "Found ringbuf_output with map ID: " << mapId << "\n";
+
+                auto it = mapIdToName.find(mapId);
+                if (it != mapIdToName.end()) {
+                    std::cout << "  Mapped to map name: " << it->second << "\n";
+                    std::string mapName = it->second;
+
+                    GlobalVariable *mapGV = M.getGlobalVariable(mapName);
+                    if (!mapGV) {
+                        std::cout << "  Error: Map global variable not found: " << mapName << "\n";
+                        return;
+                    }
+
+                    // long bpf_ringbuf_output(void *ringbuf, void *data, __u64 size, __u64 flags)
+                    FunctionType *funcType = FunctionType::get(
+                        Type::getInt64Ty(M.getContext()),
+                        {Type::getInt8PtrTy(M.getContext()), Type::getInt8PtrTy(M.getContext()), 
+                         Type::getInt64Ty(M.getContext()), Type::getInt64Ty(M.getContext())},
+                        false
+                    );
+
+                    Function *ringbufFunc = M.getFunction(func_name);
+                    if (!ringbufFunc) {
+                        ringbufFunc = Function::Create(funcType, Function::ExternalLinkage, func_name, M);
+                    }
+
+                    Value *mapPtr = Builder.CreateBitCast(mapGV, Type::getInt8PtrTy(M.getContext()), mapName + "_ptr");
+                    Value *dataPtr = dataArg->getType()->isIntegerTy() ? 
+                        Builder.CreateIntToPtr(dataArg, Type::getInt8PtrTy(M.getContext()), "data_ptr") :
+                        Builder.CreateBitCast(dataArg, Type::getInt8PtrTy(M.getContext()), "data_ptr");
+                    Value *size = sizeArg->getType()->isIntegerTy(64) ? sizeArg : 
+                        Builder.CreateZExt(sizeArg, Type::getInt64Ty(M.getContext()), "size_i64");
+                    Value *flags = flagsArg->getType()->isIntegerTy(64) ? flagsArg :
+                        Builder.CreateZExt(flagsArg, Type::getInt64Ty(M.getContext()), "flags_i64");
+
+                    CallInst *newCall = Builder.CreateCall(ringbufFunc, {mapPtr, dataPtr, size, flags}, "ringbuf_result");
+                    oldCall->replaceAllUsesWith(newCall);
+                    oldCall->eraseFromParent();
+                } else {
+                    std::cout << "  Warning: Map ID " << mapId << " not found for ringbuf_output\n";
+                }
+            }
+            return;
+        }
 
         if (func_type.compare("bpf_tail_call") == 0) {
             std::cout << "tail call" << std::endl;

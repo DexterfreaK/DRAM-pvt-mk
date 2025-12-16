@@ -153,15 +153,15 @@ struct {
     __type(value, struct paxos_batch);
 } batch_context SEC(".maps");
 
-// struct {
-//     __uint(type, BPF_MAP_TYPE_RINGBUF);
-//     __uint(max_entries, 1 << 20);
-// } map_prepare_buffer SEC(".maps");
+struct {
+    __uint(type, BPF_MAP_TYPE_RINGBUF);
+    __uint(max_entries, 1 << 20);
+} map_prepare_buffer SEC(".maps");
 
-// struct {
-//     __uint(type, BPF_MAP_TYPE_RINGBUF);
-//     __uint(max_entries, 1 << 20);
-// } map_request_buffer SEC(".maps");
+struct {
+    __uint(type, BPF_MAP_TYPE_RINGBUF);
+    __uint(max_entries, 1 << 20);
+} map_request_buffer SEC(".maps");
 
 #endif // KLEE_VERIFICATION
 
@@ -351,19 +351,19 @@ int HandleRequest_main(struct xdp_md *ctx)
     if (payload + REQ_MAX_DATA_LEN < data_end)
         return XDP_PASS;
 
-    // char *pt = bpf_ringbuf_reserve(&map_request_buffer, REQ_MAX_DATA_LEN + sizeof(__u16) + sizeof(__u32), 0);
-    // if (pt)
-    // {
-    //     *(__u16 *)pt = udp->source;
-    //     pt += sizeof(__u16);
-    //     *(__u32 *)pt = ip->saddr;
-    //     pt += sizeof(__u32);
+    char *pt = bpf_ringbuf_reserve(&map_request_buffer, REQ_MAX_DATA_LEN + sizeof(__u16) + sizeof(__u32), 0);
+    if (pt)
+    {
+        *(__u16 *)pt = udp->source;
+        pt += sizeof(__u16);
+        *(__u32 *)pt = ip->saddr;
+        pt += sizeof(__u32);
 
-    //     for (int i = 0; i < REQ_MAX_DATA_LEN; ++i)
-    //         if (payload + i + 1 <= data_end)
-    //             pt[i] = payload[i];
-    //     bpf_ringbuf_submit(pt - sizeof(__u16) - sizeof(__u32), 0);
-    // }
+        for (int i = 0; i < REQ_MAX_DATA_LEN; ++i)
+            if (payload + i + 1 <= data_end)
+                pt[i] = payload[i];
+        bpf_ringbuf_submit(pt - sizeof(__u16) - sizeof(__u32), 0);
+    }
     return XDP_DROP;
 }
 
@@ -473,19 +473,19 @@ int WriteBuffer_main(struct xdp_md *ctx)
 
     // buffer not enough, offload to user-space.
     // It's easy to avoid cause VR sends `CommitMessage` make followers keep up with the leader.
-    // char *pt = bpf_ringbuf_reserve(&map_prepare_buffer, MAX_DATA_LEN, 0);
-    // if (pt)
-    // {
-    //     for (int i = 0; i < MAX_DATA_LEN; ++i)
-    //         if (payload + i + 1 <= data_end)
-    //             pt[i] = payload[i];
-    //     bpf_ringbuf_submit(pt, 0); // guarantee to succeed.
-    // #ifdef KLEE_VERIFICATION
-    //     map_progs_xdp[FAST_PROG_XDP_PREPARE_REPLY](ctx);
-    // #else
-    //     bpf_tail_call(ctx, &map_progs_xdp, FAST_PROG_XDP_PREPARE_REPLY);
-    // #endif
-    // }
+    char *pt = bpf_ringbuf_reserve(&map_prepare_buffer, MAX_DATA_LEN, 0);
+    if (pt)
+    {
+        for (int i = 0; i < MAX_DATA_LEN; ++i)
+            if (payload + i + 1 <= data_end)
+                pt[i] = payload[i];
+        bpf_ringbuf_submit(pt, 0); // guarantee to succeed.
+#ifdef KLEE_VERIFICATION
+        map_progs_xdp[FAST_PROG_XDP_PREPARE_REPLY](ctx);
+#else
+        bpf_tail_call(ctx, &map_progs_xdp, FAST_PROG_XDP_PREPARE_REPLY);
+#endif
+    }
     return XDP_PASS;
 }
 
