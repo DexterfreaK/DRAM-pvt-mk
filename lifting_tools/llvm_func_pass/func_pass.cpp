@@ -185,6 +185,35 @@ private:
                             if (CalledF->getName() == "bpf_ringbuf_output.toreplace") {
                                 CallsToReplace.push_back({CI,"bpf_ringbuf_output"});
                             }
+                            // Simple helper functions that just need renaming (no map argument transformation)
+                            if (CalledF->getName() == "bpf_ktime_get_ns.toreplace") {
+                                CallsToReplace.push_back({CI,"bpf_ktime_get_ns"});
+                            }
+                            if (CalledF->getName() == "bpf_xdp_adjust_head.toreplace") {
+                                CallsToReplace.push_back({CI,"bpf_xdp_adjust_head"});
+                            }
+                            if (CalledF->getName() == "bpf_get_smp_processor_id.toreplace") {
+                                CallsToReplace.push_back({CI,"bpf_get_smp_processor_id"});
+                            }
+                            // Kprobe/tracepoint specific helpers
+                            if (CalledF->getName() == "bpf_get_current_comm.toreplace") {
+                                CallsToReplace.push_back({CI,"bpf_get_current_comm"});
+                            }
+                            if (CalledF->getName() == "bpf_probe_read.toreplace") {
+                                CallsToReplace.push_back({CI,"bpf_probe_read"});
+                            }
+                            if (CalledF->getName() == "bpf_probe_read_str.toreplace") {
+                                CallsToReplace.push_back({CI,"bpf_probe_read_str"});
+                            }
+                            if (CalledF->getName() == "bpf_trace_printk.toreplace") {
+                                CallsToReplace.push_back({CI,"bpf_trace_printk"});
+                            }
+                            if (CalledF->getName() == "bpf_probe_write_user.toreplace") {
+                                CallsToReplace.push_back({CI,"bpf_probe_write_user"});
+                            }
+                            if (CalledF->getName() == "bpf_override_return.toreplace") {
+                                CallsToReplace.push_back({CI,"bpf_override_return"});
+                            }
                         }
                     }
                 }
@@ -223,6 +252,93 @@ private:
 
     void replaceMapLookupDelete(CallInst *oldCall, Module &M, std::string func_name, std::string& func_type) {
         IRBuilder<> Builder(oldCall);
+
+        // Handle simple helper functions that just need renaming (no map argument transformation)
+        if (func_type.compare("bpf_ktime_get_ns") == 0) {
+            // __u64 bpf_ktime_get_ns(void)
+            std::cout << "simple helper: bpf_ktime_get_ns" << std::endl;
+            FunctionType *funcType = FunctionType::get(
+                Type::getInt64Ty(M.getContext()),
+                {},
+                false
+            );
+            Function *helperFunc = M.getFunction(func_name);
+            if (!helperFunc) {
+                helperFunc = Function::Create(funcType, Function::ExternalLinkage, func_name, M);
+            }
+            CallInst *newCall = Builder.CreateCall(helperFunc, {});
+            oldCall->replaceAllUsesWith(newCall);
+            oldCall->eraseFromParent();
+            return;
+        }
+
+        if (func_type.compare("bpf_get_smp_processor_id") == 0) {
+            // __u32 bpf_get_smp_processor_id(void)
+            std::cout << "simple helper: bpf_get_smp_processor_id" << std::endl;
+            FunctionType *funcType = FunctionType::get(
+                Type::getInt32Ty(M.getContext()),
+                {},
+                false
+            );
+            Function *helperFunc = M.getFunction(func_name);
+            if (!helperFunc) {
+                helperFunc = Function::Create(funcType, Function::ExternalLinkage, func_name, M);
+            }
+            CallInst *newCall = Builder.CreateCall(helperFunc, {});
+            // The old call might expect i64, so extend if needed
+            Value *result = newCall;
+            if (oldCall->getType()->isIntegerTy(64)) {
+                result = Builder.CreateZExt(newCall, Type::getInt64Ty(M.getContext()), "smp_id_i64");
+            }
+            oldCall->replaceAllUsesWith(result);
+            oldCall->eraseFromParent();
+            return;
+        }
+
+        if (func_type.compare("bpf_xdp_adjust_head") == 0) {
+            // int bpf_xdp_adjust_head(struct xdp_md *xdp_md, int delta)
+            std::cout << "simple helper: bpf_xdp_adjust_head" << std::endl;
+            Value *xdpArg = oldCall->getArgOperand(0);
+            Value *deltaArg = oldCall->getArgOperand(1);
+
+            FunctionType *funcType = FunctionType::get(
+                Type::getInt32Ty(M.getContext()),
+                {Type::getInt8PtrTy(M.getContext()), Type::getInt32Ty(M.getContext())},
+                false
+            );
+            Function *helperFunc = M.getFunction(func_name);
+            if (!helperFunc) {
+                helperFunc = Function::Create(funcType, Function::ExternalLinkage, func_name, M);
+            }
+
+            Value *xdpPtr;
+            if (xdpArg->getType()->isIntegerTy()) {
+                xdpPtr = Builder.CreateIntToPtr(xdpArg, Type::getInt8PtrTy(M.getContext()), "xdp_ptr");
+            } else if (xdpArg->getType()->isPointerTy()) {
+                xdpPtr = Builder.CreateBitCast(xdpArg, Type::getInt8PtrTy(M.getContext()), "xdp_ptr");
+            } else {
+                xdpPtr = xdpArg;
+            }
+
+            Value *delta;
+            if (deltaArg->getType()->isIntegerTy(64)) {
+                delta = Builder.CreateTrunc(deltaArg, Type::getInt32Ty(M.getContext()), "delta_i32");
+            } else if (deltaArg->getType()->isIntegerTy(32)) {
+                delta = deltaArg;
+            } else {
+                delta = Builder.CreateIntCast(deltaArg, Type::getInt32Ty(M.getContext()), true, "delta_i32");
+            }
+
+            CallInst *newCall = Builder.CreateCall(helperFunc, {xdpPtr, delta});
+            // Extend to i64 if the old call expects it
+            Value *result = newCall;
+            if (oldCall->getType()->isIntegerTy(64)) {
+                result = Builder.CreateSExt(newCall, Type::getInt64Ty(M.getContext()), "result_i64");
+            }
+            oldCall->replaceAllUsesWith(result);
+            oldCall->eraseFromParent();
+            return;
+        }
 
         // Handle ringbuf_submit and ringbuf_discard - these don't need map resolution
         // They take the reserved pointer as first argument, not the map
@@ -367,6 +483,252 @@ private:
                     std::cout << "  Warning: Map ID " << mapId << " not found for ringbuf_output\n";
                 }
             }
+            return;
+        }
+
+        // Handle bpf_get_current_comm(void *buf, __u32 size) -> long
+        if (func_type.compare("bpf_get_current_comm") == 0) {
+            std::cout << "simple helper: bpf_get_current_comm" << std::endl;
+            Value *bufArg = oldCall->getArgOperand(0);
+            Value *sizeArg = oldCall->getArgOperand(1);
+
+            FunctionType *funcType = FunctionType::get(
+                Type::getInt64Ty(M.getContext()),
+                {Type::getInt8PtrTy(M.getContext()), Type::getInt32Ty(M.getContext())},
+                false
+            );
+            Function *helperFunc = M.getFunction(func_name);
+            if (!helperFunc) {
+                helperFunc = Function::Create(funcType, Function::ExternalLinkage, func_name, M);
+            }
+
+            Value *bufPtr;
+            if (bufArg->getType()->isIntegerTy()) {
+                bufPtr = Builder.CreateIntToPtr(bufArg, Type::getInt8PtrTy(M.getContext()), "buf_ptr");
+            } else {
+                bufPtr = Builder.CreateBitCast(bufArg, Type::getInt8PtrTy(M.getContext()), "buf_ptr");
+            }
+
+            Value *size;
+            if (sizeArg->getType()->isIntegerTy(64)) {
+                size = Builder.CreateTrunc(sizeArg, Type::getInt32Ty(M.getContext()), "size_i32");
+            } else {
+                size = sizeArg;
+            }
+
+            CallInst *newCall = Builder.CreateCall(helperFunc, {bufPtr, size});
+            oldCall->replaceAllUsesWith(newCall);
+            oldCall->eraseFromParent();
+            return;
+        }
+
+        // Handle bpf_probe_read(void *dst, __u32 size, const void *unsafe_ptr) -> long
+        if (func_type.compare("bpf_probe_read") == 0) {
+            std::cout << "simple helper: bpf_probe_read" << std::endl;
+            Value *dstArg = oldCall->getArgOperand(0);
+            Value *sizeArg = oldCall->getArgOperand(1);
+            Value *srcArg = oldCall->getArgOperand(2);
+
+            FunctionType *funcType = FunctionType::get(
+                Type::getInt64Ty(M.getContext()),
+                {Type::getInt8PtrTy(M.getContext()), Type::getInt32Ty(M.getContext()), 
+                 Type::getInt8PtrTy(M.getContext())},
+                false
+            );
+            Function *helperFunc = M.getFunction(func_name);
+            if (!helperFunc) {
+                helperFunc = Function::Create(funcType, Function::ExternalLinkage, func_name, M);
+            }
+
+            Value *dstPtr;
+            if (dstArg->getType()->isIntegerTy()) {
+                dstPtr = Builder.CreateIntToPtr(dstArg, Type::getInt8PtrTy(M.getContext()), "dst_ptr");
+            } else {
+                dstPtr = Builder.CreateBitCast(dstArg, Type::getInt8PtrTy(M.getContext()), "dst_ptr");
+            }
+
+            Value *size;
+            if (sizeArg->getType()->isIntegerTy(64)) {
+                size = Builder.CreateTrunc(sizeArg, Type::getInt32Ty(M.getContext()), "size_i32");
+            } else {
+                size = sizeArg;
+            }
+
+            Value *srcPtr;
+            if (srcArg->getType()->isIntegerTy()) {
+                srcPtr = Builder.CreateIntToPtr(srcArg, Type::getInt8PtrTy(M.getContext()), "src_ptr");
+            } else {
+                srcPtr = Builder.CreateBitCast(srcArg, Type::getInt8PtrTy(M.getContext()), "src_ptr");
+            }
+
+            CallInst *newCall = Builder.CreateCall(helperFunc, {dstPtr, size, srcPtr});
+            oldCall->replaceAllUsesWith(newCall);
+            oldCall->eraseFromParent();
+            return;
+        }
+
+        // Handle bpf_probe_read_str(void *dst, __u32 size, const void *unsafe_ptr) -> long
+        if (func_type.compare("bpf_probe_read_str") == 0) {
+            std::cout << "simple helper: bpf_probe_read_str" << std::endl;
+            Value *dstArg = oldCall->getArgOperand(0);
+            Value *sizeArg = oldCall->getArgOperand(1);
+            Value *srcArg = oldCall->getArgOperand(2);
+
+            FunctionType *funcType = FunctionType::get(
+                Type::getInt64Ty(M.getContext()),
+                {Type::getInt8PtrTy(M.getContext()), Type::getInt32Ty(M.getContext()), 
+                 Type::getInt8PtrTy(M.getContext())},
+                false
+            );
+            Function *helperFunc = M.getFunction(func_name);
+            if (!helperFunc) {
+                helperFunc = Function::Create(funcType, Function::ExternalLinkage, func_name, M);
+            }
+
+            Value *dstPtr;
+            if (dstArg->getType()->isIntegerTy()) {
+                dstPtr = Builder.CreateIntToPtr(dstArg, Type::getInt8PtrTy(M.getContext()), "dst_ptr");
+            } else {
+                dstPtr = Builder.CreateBitCast(dstArg, Type::getInt8PtrTy(M.getContext()), "dst_ptr");
+            }
+
+            Value *size;
+            if (sizeArg->getType()->isIntegerTy(64)) {
+                size = Builder.CreateTrunc(sizeArg, Type::getInt32Ty(M.getContext()), "size_i32");
+            } else {
+                size = sizeArg;
+            }
+
+            Value *srcPtr;
+            if (srcArg->getType()->isIntegerTy()) {
+                srcPtr = Builder.CreateIntToPtr(srcArg, Type::getInt8PtrTy(M.getContext()), "src_ptr");
+            } else {
+                srcPtr = Builder.CreateBitCast(srcArg, Type::getInt8PtrTy(M.getContext()), "src_ptr");
+            }
+
+            CallInst *newCall = Builder.CreateCall(helperFunc, {dstPtr, size, srcPtr});
+            oldCall->replaceAllUsesWith(newCall);
+            oldCall->eraseFromParent();
+            return;
+        }
+
+        // Handle bpf_trace_printk(const char *fmt, __u32 fmt_size, ...) -> long
+        if (func_type.compare("bpf_trace_printk") == 0) {
+            std::cout << "simple helper: bpf_trace_printk" << std::endl;
+            // This is a variadic function - we'll just replace it with a no-op that returns 0
+            // Get the correct function signature
+            FunctionType *funcType = FunctionType::get(
+                Type::getInt64Ty(M.getContext()),
+                {Type::getInt8PtrTy(M.getContext()), Type::getInt32Ty(M.getContext())},
+                true  // variadic
+            );
+            Function *helperFunc = M.getFunction(func_name);
+            if (!helperFunc) {
+                helperFunc = Function::Create(funcType, Function::ExternalLinkage, func_name, M);
+            }
+
+            // Collect all arguments and convert types as needed
+            std::vector<Value*> args;
+            for (unsigned i = 0; i < oldCall->arg_size(); i++) {
+                Value *arg = oldCall->getArgOperand(i);
+                if (i == 0 || i == 2) {  // String pointer arguments
+                    if (arg->getType()->isIntegerTy()) {
+                        arg = Builder.CreateIntToPtr(arg, Type::getInt8PtrTy(M.getContext()), "arg_ptr");
+                    } else if (arg->getType()->isPointerTy()) {
+                        arg = Builder.CreateBitCast(arg, Type::getInt8PtrTy(M.getContext()), "arg_ptr");
+                    }
+                } else if (i == 1) {  // Size argument
+                    if (arg->getType()->isIntegerTy(64)) {
+                        arg = Builder.CreateTrunc(arg, Type::getInt32Ty(M.getContext()), "size_i32");
+                    }
+                }
+                args.push_back(arg);
+            }
+
+            CallInst *newCall = Builder.CreateCall(helperFunc, args);
+            oldCall->replaceAllUsesWith(newCall);
+            oldCall->eraseFromParent();
+            return;
+        }
+
+        // Handle bpf_probe_write_user(void *dst, const void *src, __u32 len) -> long
+        if (func_type.compare("bpf_probe_write_user") == 0) {
+            std::cout << "simple helper: bpf_probe_write_user" << std::endl;
+            Value *dstArg = oldCall->getArgOperand(0);
+            Value *srcArg = oldCall->getArgOperand(1);
+            Value *lenArg = oldCall->getArgOperand(2);
+
+            FunctionType *funcType = FunctionType::get(
+                Type::getInt64Ty(M.getContext()),
+                {Type::getInt8PtrTy(M.getContext()), Type::getInt8PtrTy(M.getContext()),
+                 Type::getInt32Ty(M.getContext())},
+                false
+            );
+            Function *helperFunc = M.getFunction(func_name);
+            if (!helperFunc) {
+                helperFunc = Function::Create(funcType, Function::ExternalLinkage, func_name, M);
+            }
+
+            Value *dstPtr;
+            if (dstArg->getType()->isIntegerTy()) {
+                dstPtr = Builder.CreateIntToPtr(dstArg, Type::getInt8PtrTy(M.getContext()), "dst_ptr");
+            } else {
+                dstPtr = Builder.CreateBitCast(dstArg, Type::getInt8PtrTy(M.getContext()), "dst_ptr");
+            }
+
+            Value *srcPtr;
+            if (srcArg->getType()->isIntegerTy()) {
+                srcPtr = Builder.CreateIntToPtr(srcArg, Type::getInt8PtrTy(M.getContext()), "src_ptr");
+            } else {
+                srcPtr = Builder.CreateBitCast(srcArg, Type::getInt8PtrTy(M.getContext()), "src_ptr");
+            }
+
+            Value *len;
+            if (lenArg->getType()->isIntegerTy(64)) {
+                len = Builder.CreateTrunc(lenArg, Type::getInt32Ty(M.getContext()), "len_i32");
+            } else {
+                len = lenArg;
+            }
+
+            CallInst *newCall = Builder.CreateCall(helperFunc, {dstPtr, srcPtr, len});
+            oldCall->replaceAllUsesWith(newCall);
+            oldCall->eraseFromParent();
+            return;
+        }
+
+        // Handle bpf_override_return(struct pt_regs *regs, __u64 rc) -> long
+        if (func_type.compare("bpf_override_return") == 0) {
+            std::cout << "simple helper: bpf_override_return" << std::endl;
+            Value *regsArg = oldCall->getArgOperand(0);
+            Value *rcArg = oldCall->getArgOperand(1);
+
+            FunctionType *funcType = FunctionType::get(
+                Type::getInt64Ty(M.getContext()),
+                {Type::getInt8PtrTy(M.getContext()), Type::getInt64Ty(M.getContext())},
+                false
+            );
+            Function *helperFunc = M.getFunction(func_name);
+            if (!helperFunc) {
+                helperFunc = Function::Create(funcType, Function::ExternalLinkage, func_name, M);
+            }
+
+            Value *regsPtr;
+            if (regsArg->getType()->isIntegerTy()) {
+                regsPtr = Builder.CreateIntToPtr(regsArg, Type::getInt8PtrTy(M.getContext()), "regs_ptr");
+            } else {
+                regsPtr = Builder.CreateBitCast(regsArg, Type::getInt8PtrTy(M.getContext()), "regs_ptr");
+            }
+
+            Value *rc;
+            if (rcArg->getType()->isIntegerTy(64)) {
+                rc = rcArg;
+            } else {
+                rc = Builder.CreateZExt(rcArg, Type::getInt64Ty(M.getContext()), "rc_i64");
+            }
+
+            CallInst *newCall = Builder.CreateCall(helperFunc, {regsPtr, rc});
+            oldCall->replaceAllUsesWith(newCall);
+            oldCall->eraseFromParent();
             return;
         }
 
@@ -544,7 +906,10 @@ private:
                             false
                         );
 
-                        Function *updateFn = Function::Create(updateFnType, Function::ExternalLinkage, func_name, M);
+                        Function *updateFn = M.getFunction(func_name);
+                        if (!updateFn) {
+                            updateFn = Function::Create(updateFnType, Function::ExternalLinkage, func_name, M);
+                        }
                         CallInst *newCall = Builder.CreateCall(updateFn, {mapPtr, keyPtr, valptr, flagarg}, "result_ptr");
                         Value *result = Builder.CreatePtrToInt(newCall, Type::getInt64Ty(M.getContext()));
                         oldCall->replaceAllUsesWith(result);

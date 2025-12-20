@@ -14,6 +14,9 @@ import yaml
 
 KLEE_BPF_CFLAGS = "-I/home/anakin/DRACO-pvt/examples/headers/ -I/usr/include/x86_64-linux-gnu -I/home/anakin/DRACO-pvt/ebpf-se/libbpf-stubbed/src/build/usr/include/"
 
+# Global variable to track detected program type
+program_type = "xdp"  # default
+
 def run_cmd(cmd, description, capture_output=True, check=True):
     """Execute a command and handle errors"""
     print(f"[{description}] Running: {' '.join(cmd) if isinstance(cmd, list) else cmd}")
@@ -80,14 +83,41 @@ print(f"[Step 2] Extracting relocation info")
 def gen_reloc_dump(elf, dump_dir) -> bool:
     with open(elf, 'rb') as f:
         elffile = ELFFile(f)
-        relxdp_section = elffile.get_section_by_name('.relxdp')
+        # Find relocation section - try common names like .relxdp, .relxdp-*, etc.
+        relxdp_section = None
+        for section in elffile.iter_sections():
+            if isinstance(section, RelocationSection) and section.name.startswith('.rel'):
+                # Skip non-program sections like .rela.BTF, .rel.debug_*, etc.
+                if any(skip in section.name for skip in ['.BTF', '.debug', '.eh_frame']):
+                    continue
+                # Look for program-related relocation sections (xdp, kprobe, tracepoint, etc.)
+                # Skip debug and BTF sections
+                if '.debug' in section.name or '.BTF' in section.name:
+                    continue
+                if 'xdp' in section.name or section.name == '.rel.text' or \
+                   'kprobe' in section.name or 'kretprobe' in section.name or \
+                   'tracepoint' in section.name or 'socket' in section.name:
+                    relxdp_section = section
+                    print(f"Found relocation section: {section.name}")
+                    # Detect program type from section name
+                    global program_type
+                    if 'kprobe' in section.name or 'kretprobe' in section.name:
+                        program_type = 'kprobe'
+                    elif 'tracepoint' in section.name or 'raw_tracepoint' in section.name:
+                        program_type = 'tracepoint'
+                    elif 'socket' in section.name:
+                        program_type = 'socket'
+                    else:
+                        program_type = 'xdp'
+                    print(f"Detected program type: {program_type}")
+                    break
         if not isinstance(relxdp_section, RelocationSection):
             return False
         symtab = elffile.get_section(relxdp_section['sh_link'])
         relxdp_data = relxdp_section.data()
         print("[relocation data] (hex) :", relxdp_data.hex())
         num_entries = relxdp_section.num_relocations()
-        print(f"Number of relocation entries in .relxdp: {num_entries}")
+        print(f"Number of relocation entries in {relxdp_section.name}: {num_entries}")
         
         # Extract function start addresses from xdp section symbols
         func_offsets = []
@@ -158,7 +188,11 @@ print(f"[Step 4] Generating template code")
 def generate_code(config, template_path='.', template_filename='draco_template.j2', output_path='generated_xdp.tmpl.c'):
     env = Environment(loader=FileSystemLoader(template_path), trim_blocks=True, lstrip_blocks=True)
     template = env.get_template(template_filename)
-    rendered = template.render({'maps': config['maps'], 'extern_func': config['extern_func']})
+    rendered = template.render({
+        'maps': config['maps'],
+        'extern_func': config['extern_func'],
+        'map_init': config.get('map_init', [])
+    })
     with open(output_path, 'w') as f:
         f.write(rendered)
 
@@ -171,11 +205,17 @@ def generate_config(dir, program_config=None):
     config["all_progs"] = all_progs
     func_name = prog_name if prog_name in all_progs else (all_progs[0] if all_progs else "")
     config["extern_func"] = str(func_name)
+    config["program_type"] = program_type  # xdp, kprobe, tracepoint, etc.
     
     # Get tailcall config if available
     tailcalls_config = {}
     if program_config and "tailcalls" in program_config:
         tailcalls_config = program_config["tailcalls"]
+    
+    # Get map_init config if available
+    config["map_init"] = []
+    if program_config and "map_init" in program_config:
+        config["map_init"] = program_config["map_init"]
     
     config["maps"] = []
     with open(os.path.join(dir, "map_dump"), 'r') as f:
@@ -183,6 +223,13 @@ def generate_config(dir, program_config=None):
             if line.strip():
                 info = line.strip().split(',')
                 map_name = info[0]
+                
+                # Skip .rodata and other non-map sections (including object-prefixed sections)
+                if map_name.startswith('.rodata') or map_name.startswith('.bss') or map_name.startswith('.data'):
+                    continue
+                if '.bss' in map_name or '.data' in map_name or '.rodata' in map_name:
+                    continue
+                
                 map_type = int(info[1])
                 
                 map_entry = {
@@ -212,6 +259,10 @@ config = generate_config(temp_dir, program_config)
 gen_cpp_path = os.path.join(temp_dir, "cpp_generated_code.c")
 generate_code(config=config, template_path="/home/anakin/DRACO-pvt/lifting_tools", output_path=gen_cpp_path)
 print(f"Function: {config['extern_func']}, Maps: {len(config['maps'])}")
+# Debug: verify file was written
+if not os.path.exists(gen_cpp_path):
+    print(f"ERROR: Template file not written: {gen_cpp_path}")
+    exit(1)
 # Show prog_array maps with tailcall entries
 for m in config['maps']:
     if m.get('tailcall_entries'):
@@ -221,17 +272,18 @@ for m in config['maps']:
 ##### Step-5 compile template
 print(f"[Step 5] Compiling template")
 klee_include = os.environ.get("KLEE_INCLUDE", "/home/anakin/DRACO-pvt/klee/include")
-env = os.environ.copy()
-env["KLEE_INCLUDE"] = klee_include
 
-result = subprocess.run(["make", "compile-template", f"input_file={gen_cpp_path}", f"output_file={gen_cpp_path}"], env=env)
-if result.returncode != 0:
-    clang_cmd = ["clang-13", "-target", "bpf", "-DKLEE_VERIFICATION", "-DVERIFY_INTERACTIONS"] + \
-        KLEE_BPF_CFLAGS.strip().split() + ["-I", klee_include, "-D__USE_VMLINUX__", "-D__TARGET_ARCH_x86",
-        "-DBPF_NO_PRESERVE_ACCESS_INDEX", "-Wall", "-Wno-unused-value", "-Wno-unused-variable",
-        "-Wno-pointer-sign", "-Wno-compare-distinct-pointer-types", "-Werror", "-fno-discard-value-names",
-        "-fno-builtin", "-O0", "-emit-llvm", "-c", "-g", gen_cpp_path, "-o", gen_cpp_path]
-    run_cmd(clang_cmd, "Compile template (fallback)")
+# Compile the template directly with clang (skip make to avoid dependency issues)
+clang_cmd = [
+    "clang-13", "-target", "bpf", "-DKLEE_VERIFICATION", "-DVERIFY_INTERACTIONS"
+] + KLEE_BPF_CFLAGS.strip().split() + [
+    "-I", klee_include, "-D__USE_VMLINUX__", "-D__TARGET_ARCH_x86",
+    "-DBPF_NO_PRESERVE_ACCESS_INDEX", "-Wall", "-Wno-unused-value", "-Wno-unused-variable",
+    "-Wno-pointer-sign", "-Wno-compare-distinct-pointer-types", "-Wno-unused-function",
+    "-fno-discard-value-names", "-fno-builtin", "-O0", "-emit-llvm", "-c", "-g",
+    gen_cpp_path, "-o", gen_cpp_path
+]
+run_cmd(clang_cmd, "Compile template")
 
 ##### Step-6 Apply ext sym pass
 print(f"[Step 6] Applying ext sym pass")

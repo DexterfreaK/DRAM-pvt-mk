@@ -1,0 +1,5 @@
+# Program configuration for two-program firewall + NAT example
+# Uses combined entry point that calls both xdp_fw and xdp_nat
+extern_func: xdp_fw_nat_combined
+program_type: xdp
+

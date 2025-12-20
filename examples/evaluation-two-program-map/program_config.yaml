@@ -1,0 +1,5 @@
+# Program configuration for two-program map interaction example
+# Uses combined entry point that calls both xdp_first_prog and xdp_second_prog
+extern_func: xdp_combined
+program_type: xdp
+
