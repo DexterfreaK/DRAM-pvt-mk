@@ -28,9 +28,9 @@
 #include "balancer_consts.h"
 #include "balancer_structs.h"
 
-#ifdef DRACO_LIFTER_MODE
+#ifndef KLEE_VERIFICATION
 // ============================================================================
-// BTF-style map definitions for DRACO lifter mode (libbpf v1.0+ compatible)
+// BTF-style map definitions for lifter mode (libbpf v1.0+ compatible)
 // ============================================================================
 
 // map, which contains all the vips for which we are doing load balancing
@@ -42,7 +42,7 @@ struct {
 } vip_map SEC(".maps");
 
 // map which contains cpu core to lru mapping (simplified for lifter compatibility)
-// Note: In DRACO_LIFTER_MODE, we use a single LRU hash map instead of array-of-maps
+// Note: In lifter mode (when not using KLEE_VERIFICATION), we use a single LRU hash map instead of array-of-maps
 // fallback_cache is not needed since we access lru_mapping directly
 struct {
   __uint(type, BPF_MAP_TYPE_LRU_HASH);
@@ -218,6 +218,6 @@ struct bpf_map_def SEC("maps") lpm_src_v6 = {
 BPF_ANNOTATE_KV_PAIR(lpm_src_v6, struct v6_lpm_key, __u32);
 #endif
 
-#endif // DRACO_LIFTER_MODE
+#endif // !KLEE_VERIFICATION
 
 #endif // of _BALANCER_MAPS

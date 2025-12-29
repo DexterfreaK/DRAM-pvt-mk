@@ -552,7 +552,7 @@ process_packet(void *data, __u64 off, void *data_end, bool is_ipv6,
       // e.g. gfs
       pckt.flow.port16[0] = 0;
     }
-#ifdef DRACO_LIFTER_MODE
+#ifndef KLEE_VERIFICATION
     // Simplified for lifter - using single LRU map instead of per-CPU maps
     void *lru_map = &lru_mapping;
 #else
@@ -630,7 +630,7 @@ process_packet(void *data, __u64 off, void *data_end, bool is_ipv6,
   return XDP_TX;
 }
 
-SEC("xdp-balancer")
+SEC("xdp")
 int balancer_ingress(struct xdp_md *ctx) {
   void *data = (void *)(long)ctx->data;
   void *data_end = (void *)(long)ctx->data_end;

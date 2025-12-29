@@ -238,6 +238,17 @@ verify-object-code: $(OBJECT_FILE_PATH)
 		-verification=true -read-set=true -write-set=true -map-correlation=true -read-write-two-phase=true -restrict-helper-function=true -enable-map-access-control=true  \
 		-enable-packet-constr=true -config-file="$(PWD)/constraints.json" final_linked_ir.bc
 
+cross-program:
+	python3 $(LIFTING_TOOLS_DIR)/generateCrossProgramIR.py \
+		$(PROG1_OBJ) $(PROG1_FUNC) \
+		$(PROG2_OBJ) $(PROG2_FUNC) \
+		$(PROGRAM_CONFIG)
+	llvm-dis -show-annotations final_linked_ir.bc
+	klee -kdalloc -kdalloc-heap-start-address=0x00040000000 -kdalloc-heap-size=1 -libc=uclibc --external-calls=all --disable-verify \
+		-solver-backend=z3 --exit-on-error -max-memory=750000 -search=dfs -single-object-resolution=true \
+		-verification=true -read-set=true -write-set=true -map-correlation=true -read-write-two-phase=true -restrict-helper-function=true -enable-map-access-control=true  \
+		-enable-packet-constr=true -config-file="$(PWD)/constraints.json" final_linked_ir.bc
+
 compile-template: $(input_file) Makefile $(KERN_USER_H) $(EXTRA_DEPS)
 	$(CLANG) \
 		-target bpf \

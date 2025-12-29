@@ -165,7 +165,9 @@ struct bpf_map_def SEC(".maps") _liftingtools_dummymap = {
     .max_entries = 1,
 };
 
-SEC("xdp") extern int {{ extern_func }}(struct xdp_md *ctx);
+{# Extern declarations for both programs #}
+SEC("xdp") extern int {{ prog1_func }}(struct xdp_md *ctx);
+SEC("xdp") extern int {{ prog2_func }}(struct xdp_md *ctx);
 
 SEC("xdp")
 int _liftingtools_temp_xdp_main(struct xdp_md *ctx) {
@@ -229,6 +231,7 @@ int _liftingtools_temp_xdp_main(struct xdp_md *ctx) {
 #include "klee/klee.h"
 #include "../../verification_tools/verification_helpers.h"
 #include <stdlib.h>
+#include <string.h>
 int main() {
     {# Initialize prog_array maps with function pointers #}
     {% for map in maps %}
@@ -274,9 +277,11 @@ int main() {
     memset(pt_ctx, 0, sizeof(struct pt_regs));
     klee_make_symbolic(pt_ctx, sizeof(struct pt_regs), "constraint_access_pt_regs");
     
-    // Execute program
+    // Execute both programs with __separate() between them
     __start_verification();
-    int val = {{ extern_func }}(pt_ctx);
+    int val1 = {{ prog1_func }}(pt_ctx);
+    __separate();
+    int val2 = {{ prog2_func }}(pt_ctx);
 {% elif program_type == 'tracepoint' %}
     // Tracepoint program - use raw_tracepoint_args context
     // NOTE: The lifter generates code expecting struct xdp_md* but accesses it as
@@ -300,25 +305,29 @@ int main() {
     tp_ctx.args[4] = 0;
     tp_ctx.args[5] = 0;
     
-    // Execute program - cast to struct xdp_md* to match lifter's extern type
-    // The memory layout (__u64 array) matches what the lifted code expects
+    // Execute both programs with __separate() between them
+    // Cast to struct xdp_md* to match lifter's extern type
     __start_verification();
-    int val = {{ extern_func }}((struct xdp_md *)&tp_ctx);
+    int val1 = {{ prog1_func }}((struct xdp_md *)&tp_ctx);
+    __separate();
+    int val2 = {{ prog2_func }}((struct xdp_md *)&tp_ctx);
 {% else %}
     // XDP program - use xdp_md context
     struct pkt *pkt = malloc(sizeof(struct pkt));
 	klee_make_symbolic(pkt, sizeof(struct pkt), "constraint_access_user_pkt");
-	// pkt->ether.h_proto = htons(ETH_P_IP);
 	struct xdp_md test;
 	test.data = (long)(&(pkt->ether));
 	test.data_end = (long)(pkt + 1);
 	test.data_meta = 0;
 	test.ingress_ifindex = 0;
     
-    // Execute program
+    // Execute both programs with __separate() between them
     __start_verification();
-    int val = {{ extern_func }}(&test);
+    int val1 = {{ prog1_func }}(&test);
+    __separate();
+    int val2 = {{ prog2_func }}(&test);
 {% endif %}
     return 0;
 }
 #endif
+

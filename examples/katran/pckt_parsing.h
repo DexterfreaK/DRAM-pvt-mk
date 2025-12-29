@@ -68,11 +68,13 @@ static inline __u64 calc_offset(bool is_ipv6, bool is_icmp) {
     if (is_icmp) {
       off += (sizeof(struct icmp6hdr) + sizeof(struct ipv6hdr));
     }
+    // off += 88;
   } else {
     off += sizeof(struct iphdr);
     if (is_icmp) {
       off += (sizeof(struct icmphdr) + sizeof(struct iphdr));
     }
+    // off += 48;
   }
   return off;
 }
@@ -108,7 +110,8 @@ static inline bool parse_tcp(void *data, void *data_end,
                              bool is_ipv6,
                              struct packet_description *pckt) {
 
-  bool is_icmp = !((pckt->flags & F_ICMP) == 0);
+  bool is_icmp = (bool)(!((pckt->flags & F_ICMP) == 0));
+  // return true;
   __u64 off = calc_offset(is_ipv6, is_icmp);
   struct tcphdr *tcp;
   tcp = data + off;

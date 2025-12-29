@@ -27,14 +27,14 @@
     "packet_constraints": [
         {
             "sPort": "*",
-            "dPort": "14640",
+            "dPort": "*",
             "sIP": "*",
             "dIP": "*",
             "read-access": [
-                "0-118"
+                "*"
             ],
             "write-access": [
-                "0-118"
+                "*"
             ]
         }
     ]

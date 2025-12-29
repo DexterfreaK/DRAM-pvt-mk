@@ -30,9 +30,9 @@
 
 #include <linux/types.h>
 
-#ifdef DRACO_LIFTER_MODE
+#ifndef KLEE_VERIFICATION
 // ============================================================================
-// BTF-style map definitions for DRACO lifter mode (libbpf v1.0+ compatible)
+// BTF-style map definitions for lifter mode (libbpf v1.0+ compatible)
 // ============================================================================
 
 // control array. contains metadata such as default router mac
@@ -143,6 +143,6 @@ struct bpf_map_def SEC("maps") pckt_srcs = {
 BPF_ANNOTATE_KV_PAIR(pckt_srcs, __u32, struct real_definition);
 #endif
 
-#endif // DRACO_LIFTER_MODE
+#endif // !KLEE_VERIFICATION
 
 #endif // of __CONTROL_DATA_MAPS_H

@@ -57,8 +57,12 @@ Katran is a high performance L4 loadbalancer
 int main(int argc, char** argv){
   BPF_TIME_INIT();
   BPF_MAP_INIT(&vip_map, "vip_map", "pkt.vip", "vip_metadata");
+#ifdef KLEE_VERIFICATION
   BPF_MAP_OF_MAPS_INIT(&lru_mapping, &fallback_cache, "lru_mapping", "pkt.flow", "backend");
   BPF_MAP_INIT(&fallback_cache, "fallback_cache", "pkt.flow", "backend");
+#else
+  BPF_MAP_INIT(&lru_mapping, "lru_mapping", "pkt.flow", "backend");
+#endif
   BPF_MAP_INIT(&ch_rings, "ch_rings", "", "backend_real_id");
   BPF_MAP_INIT(&reals, "reals", "", "backend_metadata");
   BPF_MAP_INIT(&reals_stats, "reals_stats", "", "backend_stats");
@@ -111,6 +115,7 @@ int main(int argc, char** argv){
   }
 
   get_packet(type, &test);
+  // klee_make_symbolic(&test, sizeof(struct xdp_md), "test");
 
   test.data_meta = 0;
   test.ingress_ifindex = 0;

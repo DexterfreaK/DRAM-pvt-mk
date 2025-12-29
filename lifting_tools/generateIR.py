@@ -185,13 +185,14 @@ else:
 
 ##### Step-4 template generation
 print(f"[Step 4] Generating template code")
-def generate_code(config, template_path='.', template_filename='draco_template.j2', output_path='generated_xdp.tmpl.c'):
+def generate_code(config, template_path='.', template_filename='draco_template.j2', output_path='generated_xdp.tmpl.c', function_pass_ran=False):
     env = Environment(loader=FileSystemLoader(template_path), trim_blocks=True, lstrip_blocks=True)
     template = env.get_template(template_filename)
     rendered = template.render({
         'maps': config['maps'],
         'extern_func': config['extern_func'],
-        'map_init': config.get('map_init', [])
+        'map_init': config.get('map_init', []),
+        'function_pass_ran': function_pass_ran
     })
     with open(output_path, 'w') as f:
         f.write(rendered)
@@ -257,7 +258,7 @@ def generate_config(dir, program_config=None):
 
 config = generate_config(temp_dir, program_config)
 gen_cpp_path = os.path.join(temp_dir, "cpp_generated_code.c")
-generate_code(config=config, template_path="/home/anakin/DRACO-pvt/lifting_tools", output_path=gen_cpp_path)
+generate_code(config=config, template_path="/home/anakin/DRACO-pvt/lifting_tools", output_path=gen_cpp_path, function_pass_ran=do_relocate)
 print(f"Function: {config['extern_func']}, Maps: {len(config['maps'])}")
 # Debug: verify file was written
 if not os.path.exists(gen_cpp_path):
