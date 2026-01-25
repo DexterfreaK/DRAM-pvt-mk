@@ -1,0 +1,27 @@
+daemon:
+  socket_path: /var/run/krakenguard.sock
+  socket_permissions: 0777
+  log_level: INFO
+  log_file: /data/logs/krakenguard.log
+
+paths:
+  bpflifter: /opt/krakenguard/bin/bpflifter_cli
+  klee: /opt/krakenguard/bin/klee
+  opt: /usr/bin/opt
+  clang: /usr/bin/clang-13
+  llvm_link: /usr/bin/llvm-link
+  func_pass: /opt/krakenguard/lib/libfunc_pass.so
+  ext_sym_pass: /opt/krakenguard/lib/libext_sym_pass.so
+  generate_ir: /opt/krakenguard/lifting_tools/generateIR.py
+  templates: /opt/krakenguard/lifting_tools
+
+storage:
+  data_dir: /data
+  requests_dir: /data/requests
+
+klee:
+  heap_start_address: "0x00040000000"
+  heap_size: 1
+  max_memory: 750000
+  solver_backend: z3
+  timeout: 300

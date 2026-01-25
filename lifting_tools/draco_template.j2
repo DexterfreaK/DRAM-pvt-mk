@@ -227,7 +227,7 @@ int _liftingtools_temp_xdp_main(struct xdp_md *ctx) {
 
 #ifdef KLEE_VERIFICATION
 #include "klee/klee.h"
-#include "../../verification_tools/verification_helpers.h"
+#include "{{ verification_helpers_path }}"
 #include <stdlib.h>
 int main() {
     {# Initialize prog_array maps with function pointers #}

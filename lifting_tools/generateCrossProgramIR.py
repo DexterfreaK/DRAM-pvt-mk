@@ -13,9 +13,21 @@ from elftools.elf.relocation import RelocationSection
 from jinja2 import Environment, FileSystemLoader
 import yaml
 
-# Get KLEE_BPF_CFLAGS from environment or use default
-KLEE_BPF_CFLAGS = os.getenv("KLEE_BPF_CFLAGS", 
-    "-I/home/anakin/DRACO-pvt/examples/headers/ -I/usr/include/x86_64-linux-gnu -I/home/anakin/DRACO-pvt/ebpf-se/libbpf-stubbed/src/build/usr/include/")
+# Build KLEE_BPF_CFLAGS dynamically based on KRAKENGUARD_HOME
+def get_klee_bpf_cflags():
+    krakenguard_home = os.getenv("KRAKENGUARD_HOME")
+    if krakenguard_home:
+        examples_headers = f"{krakenguard_home}/examples/headers"
+        libbpf_include = f"{krakenguard_home}/ebpf-se/libbpf-stubbed/src/build/usr/include"
+    else:
+        # Fallback to development paths
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.dirname(script_dir)
+        examples_headers = f"{project_root}/examples/headers"
+        libbpf_include = f"{project_root}/ebpf-se/libbpf-stubbed/src/build/usr/include"
+    return f"-I{examples_headers} -I/usr/include/x86_64-linux-gnu -I{libbpf_include}"
+
+KLEE_BPF_CFLAGS = os.getenv("KLEE_BPF_CFLAGS", get_klee_bpf_cflags())
 
 # Global variables to track detected program types
 prog1_type = "xdp"  # default
@@ -384,6 +396,16 @@ def merge_cross_program_configs(prog1_config, prog2_config, yaml_config, prog1_e
 def generate_cross_program_code(config, template_path='.', template_filename='draco_cross_prog_template.j2', 
                                 output_path='generated_cross_prog.tmpl.c', function_pass_ran=False):
     """Generate cross-program template code"""
+    # Get verification_helpers path based on KRAKENGUARD_HOME
+    krakenguard_home = os.getenv("KRAKENGUARD_HOME")
+    if krakenguard_home:
+        verification_helpers_path = f"{krakenguard_home}/verification_tools/verification_helpers.h"
+    else:
+        # Fallback to relative path from project root
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.dirname(script_dir)
+        verification_helpers_path = f"{project_root}/verification_tools/verification_helpers.h"
+    
     env = Environment(loader=FileSystemLoader(template_path), trim_blocks=True, lstrip_blocks=True)
     template = env.get_template(template_filename)
     rendered = template.render({
@@ -393,7 +415,8 @@ def generate_cross_program_code(config, template_path='.', template_filename='dr
         'program_type': config['program_type'],
         'map_init': config.get('map_init', []),
         'function_pass_ran': function_pass_ran,
-        'all_progs': config.get('all_progs', [])
+        'all_progs': config.get('all_progs', []),
+        'verification_helpers_path': verification_helpers_path
     })
     with open(output_path, 'w') as f:
         f.write(rendered)
@@ -467,7 +490,15 @@ try:
     
     # Compile template
     print(f"\n[Compiling Template]")
-    klee_include = os.environ.get("KLEE_INCLUDE", "/home/anakin/DRACO-pvt/klee/include")
+    # Get KLEE_INCLUDE from environment, with fallback using KRAKENGUARD_HOME
+    krakenguard_home = os.getenv("KRAKENGUARD_HOME")
+    if krakenguard_home:
+        default_klee_include = f"{krakenguard_home}/klee/include"
+    else:
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.dirname(script_dir)
+        default_klee_include = f"{project_root}/klee/include"
+    klee_include = os.environ.get("KLEE_INCLUDE", default_klee_include)
     clang_cmd = [
         "clang-13", "-target", "bpf", "-DKLEE_VERIFICATION", "-DVERIFY_INTERACTIONS"
     ] + KLEE_BPF_CFLAGS.strip().split() + [

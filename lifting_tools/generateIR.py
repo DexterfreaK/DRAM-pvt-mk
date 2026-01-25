@@ -12,7 +12,21 @@ from elftools.elf.relocation import RelocationSection
 from jinja2 import Environment, FileSystemLoader
 import yaml
 
-KLEE_BPF_CFLAGS = "-I/home/anakin/DRACO-pvt/examples/headers/ -I/usr/include/x86_64-linux-gnu -I/home/anakin/DRACO-pvt/ebpf-se/libbpf-stubbed/src/build/usr/include/"
+# Build KLEE_BPF_CFLAGS dynamically based on KRAKENGUARD_HOME
+def get_klee_bpf_cflags():
+    krakenguard_home = os.getenv("KRAKENGUARD_HOME")
+    if krakenguard_home:
+        examples_headers = f"{krakenguard_home}/examples/headers"
+        libbpf_include = f"{krakenguard_home}/ebpf-se/libbpf-stubbed/src/build/usr/include"
+    else:
+        # Fallback to development paths
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.dirname(script_dir)
+        examples_headers = f"{project_root}/examples/headers"
+        libbpf_include = f"{project_root}/ebpf-se/libbpf-stubbed/src/build/usr/include"
+    return f"-I{examples_headers} -I/usr/include/x86_64-linux-gnu -I{libbpf_include}"
+
+KLEE_BPF_CFLAGS = get_klee_bpf_cflags()
 
 # Global variable to track detected program type
 program_type = "xdp"  # default
@@ -166,7 +180,14 @@ print(f"Has .relxdp: {do_relocate}")
 ##### Step-3 apply llvm function pass on lifter and opt IR
 print(f"[Step 3] Applying function pass to remove map globals")
 
-func_pass_lib = os.getenv("FUNC_PASS_LIB", "/home/anakin/DRACO-pvt/lifting_tools/llvm_func_pass/build/libfunc_pass.so")
+# Get FUNC_PASS_LIB from environment, with fallback using KRAKENGUARD_HOME or script directory
+krakenguard_home = os.getenv("KRAKENGUARD_HOME")
+if krakenguard_home:
+    default_func_pass = f"{krakenguard_home}/lib/libfunc_pass.so"
+else:
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    default_func_pass = f"{script_dir}/llvm_func_pass/build/libfunc_pass.so"
+func_pass_lib = os.getenv("FUNC_PASS_LIB", default_func_pass)
 if not os.path.exists(func_pass_lib):
     print(f"ERROR: Function pass library not found: {func_pass_lib}")
     exit(1)
@@ -186,13 +207,24 @@ else:
 ##### Step-4 template generation
 print(f"[Step 4] Generating template code")
 def generate_code(config, template_path='.', template_filename='draco_template.j2', output_path='generated_xdp.tmpl.c', function_pass_ran=False):
+    # Get verification_helpers path based on KRAKENGUARD_HOME
+    krakenguard_home = os.getenv("KRAKENGUARD_HOME")
+    if krakenguard_home:
+        verification_helpers_path = f"{krakenguard_home}/verification_tools/verification_helpers.h"
+    else:
+        # Fallback to relative path from project root
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.dirname(script_dir)
+        verification_helpers_path = f"{project_root}/verification_tools/verification_helpers.h"
+    
     env = Environment(loader=FileSystemLoader(template_path), trim_blocks=True, lstrip_blocks=True)
     template = env.get_template(template_filename)
     rendered = template.render({
         'maps': config['maps'],
         'extern_func': config['extern_func'],
         'map_init': config.get('map_init', []),
-        'function_pass_ran': function_pass_ran
+        'function_pass_ran': function_pass_ran,
+        'verification_helpers_path': verification_helpers_path
     })
     with open(output_path, 'w') as f:
         f.write(rendered)
@@ -258,7 +290,13 @@ def generate_config(dir, program_config=None):
 
 config = generate_config(temp_dir, program_config)
 gen_cpp_path = os.path.join(temp_dir, "cpp_generated_code.c")
-generate_code(config=config, template_path="/home/anakin/DRACO-pvt/lifting_tools", output_path=gen_cpp_path, function_pass_ran=do_relocate)
+# Get template path from KRAKENGUARD_HOME or use script directory
+krakenguard_home = os.getenv("KRAKENGUARD_HOME")
+if krakenguard_home:
+    template_path = f"{krakenguard_home}/lifting_tools"
+else:
+    template_path = os.path.dirname(os.path.abspath(__file__))
+generate_code(config=config, template_path=template_path, output_path=gen_cpp_path, function_pass_ran=do_relocate)
 print(f"Function: {config['extern_func']}, Maps: {len(config['maps'])}")
 # Debug: verify file was written
 if not os.path.exists(gen_cpp_path):
@@ -272,7 +310,15 @@ for m in config['maps']:
 
 ##### Step-5 compile template
 print(f"[Step 5] Compiling template")
-klee_include = os.environ.get("KLEE_INCLUDE", "/home/anakin/DRACO-pvt/klee/include")
+# Get KLEE_INCLUDE from environment, with fallback using KRAKENGUARD_HOME
+krakenguard_home = os.getenv("KRAKENGUARD_HOME")
+if krakenguard_home:
+    default_klee_include = f"{krakenguard_home}/klee/include"
+else:
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(script_dir)
+    default_klee_include = f"{project_root}/klee/include"
+klee_include = os.environ.get("KLEE_INCLUDE", default_klee_include)
 
 # Compile the template directly with clang (skip make to avoid dependency issues)
 clang_cmd = [

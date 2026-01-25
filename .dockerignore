@@ -1,0 +1,52 @@
+# Ignore build artifacts from host (we build fresh in container)
+bpf_lifter/build/
+lifting_tools/llvm_func_pass/build/
+lifting_tools/llvm_ext_sym_pass/build/
+klee/build/
+
+# Ignore dependency build artifacts (source is copied and built in container)
+dependencies/z3/build/
+dependencies/klee-uclibc/lib/
+dependencies/klee-uclibc/*.o
+
+# Ignore ebpf-se build artifacts (built in container)
+ebpf-se/libbpf-stubbed/src/obj/
+ebpf-se/libbpf-stubbed/src/build/
+
+# Ignore generated files
+*.o
+*.bc
+*.ll
+*.ktest
+klee-out-*
+klee-last
+
+# Ignore git directories
+**/.git
+.gitignore
+.gitmodules
+
+# Ignore test output and data
+data/
+socket/
+
+# Ignore IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Ignore Python cache
+**/__pycache__/
+*.pyc
+*.pyo
+
+# Ignore old/unused files
+daemon/karkenGuard.py
+.cursor/
+
+# Keep important docs but ignore others
+*.md
+!daemon/README.md
+!daemon/ARCHITECTURE.md
