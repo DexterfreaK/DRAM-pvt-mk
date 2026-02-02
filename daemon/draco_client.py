@@ -254,6 +254,102 @@ class KrakenGuardClient:
         finally:
             self.disconnect()
     
+    def verify_cross_program(
+        self,
+        object1_file: str,
+        object2_file: str,
+        constraints_file: str,
+        program_config_file: str,
+        prog1_func: str,
+        prog2_func: str,
+        timeout: Optional[int] = None,
+        retain_results: bool = True,
+        debug: bool = False
+    ) -> Response:
+        """
+        Run cross-program verification (two eBPF programs linked for analysis).
+
+        Args:
+            object1_file: Path to first eBPF object file (e.g. balancer_main.o)
+            object2_file: Path to second eBPF object file (e.g. fast_kern.o)
+            constraints_file: Path to constraints.json
+            program_config_file: Path to program_config.yaml (cross-program config)
+            prog1_func: Entry function for program 1 (e.g. balancer_ingress)
+            prog2_func: Entry function for program 2 (e.g. fastPaxos_main)
+            timeout: Timeout in seconds (optional)
+            retain_results: Whether to retain results
+            debug: Enable debug output
+
+        Returns:
+            Response object
+        """
+        if not self.conn:
+            self.connect()
+
+        try:
+            with open(object1_file, "rb") as f:
+                object1_data = f.read()
+            with open(object2_file, "rb") as f:
+                object2_data = f.read()
+            with open(constraints_file, "r") as f:
+                constraints_data = f.read()
+            with open(program_config_file, "r") as f:
+                config_data = f.read()
+
+            object1_encoded = encode_file(object1_data, "base64")
+            object1_encoded_bytes = object1_encoded.encode("ascii")
+            object2_encoded = encode_file(object2_data, "base64")
+            object2_encoded_bytes = object2_encoded.encode("ascii")
+            constraints_encoded = constraints_data.encode("utf-8")
+            config_encoded = config_data.encode("utf-8")
+
+            request = Request(
+                version="1.0",
+                request_id=str(uuid.uuid4()),
+                action="cross_program",
+                retain_results=retain_results,
+                files={
+                    "object1": FileInfo(
+                        name=os.path.basename(object1_file),
+                        size=len(object1_encoded_bytes),
+                        encoding="base64",
+                        data=object1_encoded_bytes
+                    ),
+                    "object2": FileInfo(
+                        name=os.path.basename(object2_file),
+                        size=len(object2_encoded_bytes),
+                        encoding="base64",
+                        data=object2_encoded_bytes
+                    ),
+                    "constraints": FileInfo(
+                        name=os.path.basename(constraints_file),
+                        size=len(constraints_encoded),
+                        encoding="utf8",
+                        data=constraints_encoded
+                    ),
+                    "config": FileInfo(
+                        name=os.path.basename(program_config_file),
+                        size=len(config_encoded),
+                        encoding="utf8",
+                        data=config_encoded
+                    )
+                },
+                options={
+                    "prog1_func": prog1_func,
+                    "prog2_func": prog2_func,
+                    "timeout": timeout,
+                    "debug": debug
+                }
+            )
+
+            self._send(request)
+            for file_info in request.files.values():
+                self.conn.sendall(file_info.data)
+            response_dict = self._receive()
+            return Response.from_dict(response_dict)
+        finally:
+            self.disconnect()
+
     def health(self) -> Response:
         """
         Check daemon health.

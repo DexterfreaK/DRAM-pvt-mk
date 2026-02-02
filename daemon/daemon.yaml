@@ -13,6 +13,7 @@ paths:
   func_pass: /opt/krakenguard/lib/libfunc_pass.so
   ext_sym_pass: /opt/krakenguard/lib/libext_sym_pass.so
   generate_ir: /opt/krakenguard/lifting_tools/generateIR.py
+  generate_cross_program_ir: /opt/krakenguard/lifting_tools/generateCrossProgramIR.py
   templates: /opt/krakenguard/lifting_tools
 
 storage:

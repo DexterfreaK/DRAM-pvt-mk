@@ -104,6 +104,95 @@ def run_lifting_pipeline(
     return final_ir_path, result.stdout, result.stderr
 
 
+def run_cross_program_pipeline(
+    object1_file: str,
+    object2_file: str,
+    program_config: str,
+    prog1_func: str,
+    prog2_func: str,
+    intermediate_dir: str,
+    debug: bool = False,
+    debug_output_file: Optional[str] = None
+) -> Tuple[str, str, str]:
+    """
+    Run cross-program lifting pipeline by calling generateCrossProgramIR.py.
+
+    Args:
+        object1_file: Path to first eBPF object file
+        object2_file: Path to second eBPF object file
+        program_config: Path to program_config.yaml
+        prog1_func: Entry function name for program 1
+        prog2_func: Entry function name for program 2
+        intermediate_dir: Directory for intermediate files and output (final_linked_ir.bc)
+
+    Returns:
+        Tuple of (final_ir_path, stdout, stderr)
+    """
+    config = get_config()
+    script = config.paths.get("generate_cross_program_ir")
+    if not script:
+        # Fallback: same dir as generate_ir but generateCrossProgramIR.py
+        generate_ir = config.paths.get("generate_ir", "")
+        if generate_ir:
+            script = os.path.join(os.path.dirname(generate_ir), "generateCrossProgramIR.py")
+    if not script or not os.path.exists(script):
+        raise FileNotFoundError(
+            f"generateCrossProgramIR.py not found at {script}. "
+            "Set paths.generate_cross_program_ir in daemon.yaml."
+        )
+
+    cmd = [
+        "python3", script,
+        object1_file, prog1_func,
+        object2_file, prog2_func,
+        program_config
+    ]
+    logger.info(f"Running cross-program pipeline: {' '.join(cmd)}")
+
+    result = subprocess.run(
+        cmd,
+        cwd=intermediate_dir,
+        capture_output=True,
+        text=True,
+        check=False
+    )
+
+    if result.returncode != 0:
+        logger.error(f"Cross-program pipeline failed: {result.stderr}")
+        raise subprocess.CalledProcessError(
+            result.returncode,
+            cmd,
+            result.stdout,
+            result.stderr
+        )
+
+    final_ir_path = os.path.join(intermediate_dir, "final_linked_ir.bc")
+    if not os.path.exists(final_ir_path):
+        raise FileNotFoundError(
+            f"final_linked_ir.bc not found in {intermediate_dir} after cross-program lifting"
+        )
+
+    logger.info(f"Cross-program pipeline completed: {final_ir_path}")
+
+    if debug and debug_output_file:
+        try:
+            with open(debug_output_file, "a") as f:
+                f.write("=" * 80 + "\n")
+                f.write("CROSS-PROGRAM LIFTING PIPELINE OUTPUT\n")
+                f.write("=" * 80 + "\n")
+                f.write(f"Command: {' '.join(cmd)}\n")
+                f.write(f"Return code: {result.returncode}\n")
+                f.write("\n--- STDOUT ---\n")
+                f.write(result.stdout)
+                f.write("\n--- STDERR ---\n")
+                f.write(result.stderr)
+                f.write("\n\n")
+        except Exception as e:
+            logger.warning(f"Failed to write debug output: {e}")
+
+    return final_ir_path, result.stdout, result.stderr
+
+
 def run_klee_verification(
     final_ir_path: str,
     constraints_file: str,

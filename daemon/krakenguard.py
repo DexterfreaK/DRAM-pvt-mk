@@ -20,7 +20,7 @@ from .protocol import (
     ExecutionInfo, OutputInfo, ErrorInfo
 )
 from .pipeline import (
-    run_lifting_pipeline, run_klee_verification,
+    run_lifting_pipeline, run_cross_program_pipeline, run_klee_verification,
     parse_verification_results, is_verification_passed, collect_output_files,
     parse_klee_statistics
 )
@@ -197,6 +197,137 @@ class KrakenGuardDaemon:
                 save_uploaded_file(file_info.data, file_path)
                 logger.debug(f"Saved {key} to {file_path}")
     
+    def _handle_cross_program_request(
+        self, request: Request, request_dirs: dict, start_time: float
+    ) -> Response:
+        """Handle cross-program verification request."""
+        request_id = request.request_id
+        for key in ("object1", "object2", "constraints", "config"):
+            if key not in request.files:
+                return Response(
+                    version="1.0",
+                    request_id=request_id,
+                    status="error",
+                    error=ErrorInfo(
+                        stage="receive",
+                        code="INVALID_REQUEST",
+                        message=f"Cross-program request requires files: object1, object2, constraints, config. Missing: {key}",
+                        details=""
+                    ),
+                    retained=request.retain_results
+                )
+        object1_file = os.path.join(request_dirs["input_dir"], request.files["object1"].name)
+        object2_file = os.path.join(request_dirs["input_dir"], request.files["object2"].name)
+        constraints_file = os.path.join(request_dirs["input_dir"], request.files["constraints"].name)
+        program_config = os.path.join(request_dirs["input_dir"], request.files["config"].name)
+        prog1_func = request.options.get("prog1_func") or request.options.get("entry_function")
+        prog2_func = request.options.get("prog2_func")
+        if not prog1_func or not prog2_func:
+            return Response(
+                version="1.0",
+                request_id=request_id,
+                status="error",
+                error=ErrorInfo(
+                    stage="receive",
+                    code="INVALID_REQUEST",
+                    message="Cross-program request requires options: prog1_func and prog2_func (or entry_func for prog1 and prog2_func for prog2)",
+                    details=""
+                ),
+                retained=request.retain_results
+            )
+        debug = request.options.get("debug", False)
+        debug_output_file = None
+        if debug:
+            debug_output_file = os.path.join(request_dirs["output_dir"], "execution.log")
+            try:
+                with open(debug_output_file, "w") as f:
+                    f.write(f"Execution log for request: {request_id}\n")
+                    f.write(f"Started at: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+                    f.write("=" * 80 + "\n\n")
+            except Exception as e:
+                logger.warning(f"[{request_id}] Failed to create debug output file: {e}")
+        try:
+            logger.info(f"[{request_id}] Stage 1/3: Running cross-program lifting pipeline")
+            final_ir_path, lift_stdout, lift_stderr = run_cross_program_pipeline(
+                object1_file=object1_file,
+                object2_file=object2_file,
+                program_config=program_config,
+                prog1_func=prog1_func,
+                prog2_func=prog2_func,
+                intermediate_dir=request_dirs["intermediate_dir"],
+                debug=debug,
+                debug_output_file=debug_output_file
+            )
+            logger.info(f"[{request_id}] Stage 2/3: Running KLEE verification")
+            klee_output_dir, klee_stdout, klee_stderr, klee_return_code = run_klee_verification(
+                final_ir_path=final_ir_path,
+                constraints_file=constraints_file,
+                output_dir=request_dirs["output_dir"],
+                timeout=request.options.get("timeout"),
+                debug=debug,
+                debug_output_file=debug_output_file
+            )
+            logger.info(f"[{request_id}] Stage 3/3: Parsing verification results")
+            verification_results = parse_verification_results(klee_output_dir)
+            passed = is_verification_passed(verification_results)
+            klee_stats = parse_klee_statistics(klee_output_dir)
+            verification_result = VerificationResult(
+                passed=passed,
+                helper_functions=HelperFunctionResult(**verification_results["helper_functions"]),
+                map_access=MapAccessResult(**verification_results["map_access"])
+            )
+            output_files = collect_output_files(klee_output_dir)
+            if debug and debug_output_file and os.path.exists(debug_output_file):
+                output_files["execution.log"] = debug_output_file
+            duration = time.time() - start_time
+            return Response(
+                version="1.0",
+                request_id=request_id,
+                status="success" if passed else "verification_failed",
+                verification_result=verification_result,
+                load_result=LoadResult(
+                    loaded=False,
+                    message="Cross-program analysis does not support load"
+                ),
+                execution=ExecutionInfo(
+                    duration_seconds=duration,
+                    paths_explored=klee_stats["paths_explored"],
+                    total_instructions=klee_stats["total_instructions"],
+                    return_code=klee_return_code
+                ),
+                output=OutputInfo(
+                    stdout=lift_stdout + "\n" + klee_stdout,
+                    stderr=lift_stderr + "\n" + klee_stderr,
+                    directory=klee_output_dir,
+                    files=output_files
+                ),
+                retained=request.retain_results
+            )
+        except Exception as e:
+            logger.error(f"[{request_id}] Error in cross-program request: {e}", exc_info=True)
+            if debug and debug_output_file:
+                try:
+                    with open(debug_output_file, "a") as f:
+                        f.write("=" * 80 + "\nERROR\n" + "=" * 80 + "\n")
+                        f.write(f"Error: {str(e)}\n")
+                        import traceback
+                        traceback.print_exc(file=f)
+                except Exception:
+                    pass
+            return Response(
+                version="1.0",
+                request_id=request_id,
+                status="error",
+                error=ErrorInfo(
+                    stage="processing",
+                    code="PROCESSING_ERROR",
+                    message=str(e),
+                    details=""
+                ),
+                load_result=LoadResult(loaded=False, message="Pipeline error"),
+                retained=request.retain_results
+            )
+    
     def _handle_request(self, request: Request, request_dirs: dict) -> Response:
         """
         Handle verification and loading request.
@@ -220,7 +351,11 @@ class KrakenGuardDaemon:
                 execution=ExecutionInfo(duration_seconds=time.time() - start_time)
             )
         
-        # Get file paths
+        # Handle cross-program analysis
+        if request.action == "cross_program":
+            return self._handle_cross_program_request(request, request_dirs, start_time)
+        
+        # Single-program: get file paths
         object_file = os.path.join(request_dirs["input_dir"], request.files["object"].name)
         constraints_file = os.path.join(request_dirs["input_dir"], request.files["constraints"].name)
         program_config = None

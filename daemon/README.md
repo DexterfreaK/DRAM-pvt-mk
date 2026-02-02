@@ -76,6 +76,16 @@ result = client.verify(
     constraints_file="constraints.json"
 )
 
+# Cross-program verification (two eBPF programs linked for analysis)
+result = client.verify_cross_program(
+    object1_file="katran/balancer_main.o",
+    object2_file="electrode/fast_kern.o",
+    constraints_file="constraints.json",
+    program_config_file="program_config.yaml",
+    prog1_func="balancer_ingress",
+    prog2_func="fastPaxos_main"
+)
+
 # Health check
 result = client.health()
 ```
@@ -91,6 +101,9 @@ python3 daemon/test_client.py verify program.o constraints.json [config.yaml]
 
 # Load (verify + load)
 python3 daemon/test_client.py load program.o constraints.json [config.yaml]
+
+# Cross-program verification (equivalent to make cross-program PROG1_OBJ=... PROG2_OBJ=... etc.)
+python3 daemon/test_client.py cross-program obj1.o obj2.o constraints.json program_config.yaml prog1_entry prog2_entry [--debug]
 ```
 
 ## Request Format
