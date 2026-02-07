@@ -7,3 +7,6 @@
 [submodule "bpf_lifter"]
 	path = bpf_lifter
 	url = git@github.com:jainl28patel/bpf_lifter.git
+[submodule "xdp-perf"]
+	path = xdp-perf
+	url = git@github.com:lucasbn/xdp-perf.git
