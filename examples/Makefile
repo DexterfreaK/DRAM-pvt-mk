@@ -231,7 +231,18 @@ verify-map-policy: $(XDP_C) Makefile $(KERN_USER_H) $(EXTRA_DEPS)
 		-verification=true -map-access-control-file=$(MAP_CONFIG_PATH) $(XDP_TARGETS).bc
 
 verify-object-code: $(OBJECT_FILE_PATH)
-	$(LIFTING_TOOLS_DIR)/generateIR.py $(OBJECT_FILE_PATH) $(MAIN_FUNC_NAME)
+	$(LIFTING_TOOLS_DIR)/generateIR.py $(OBJECT_FILE_PATH) $(MAIN_FUNC_NAME) $(PROGRAM_CONFIG)
+	llvm-dis -show-annotations final_linked_ir.bc
+	klee -kdalloc -kdalloc-heap-start-address=0x00040000000 -kdalloc-heap-size=1 -libc=uclibc --external-calls=all --disable-verify \
+		-solver-backend=z3 --exit-on-error -max-memory=750000 -search=dfs -single-object-resolution=true \
+		-verification=true -read-set=true -write-set=true -map-correlation=true -read-write-two-phase=true -restrict-helper-function=true -enable-map-access-control=true  \
+		-enable-packet-constr=true -config-file="$(PWD)/constraints.json" final_linked_ir.bc
+
+cross-program:
+	python3 $(LIFTING_TOOLS_DIR)/generateCrossProgramIR.py \
+		$(PROG1_OBJ) $(PROG1_FUNC) \
+		$(PROG2_OBJ) $(PROG2_FUNC) \
+		$(PROGRAM_CONFIG)
 	llvm-dis -show-annotations final_linked_ir.bc
 	klee -kdalloc -kdalloc-heap-start-address=0x00040000000 -kdalloc-heap-size=1 -libc=uclibc --external-calls=all --disable-verify \
 		-solver-backend=z3 --exit-on-error -max-memory=750000 -search=dfs -single-object-resolution=true \

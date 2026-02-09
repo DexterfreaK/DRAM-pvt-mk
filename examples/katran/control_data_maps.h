@@ -30,15 +30,60 @@
 
 #include <linux/types.h>
 
-#define BPF_ANNOTATE_KV_PAIR(name, type_key, type_val)    \
-  struct ____btf_map_##name {       \
-    type_key key;         \
-    type_val value;         \
-  };              \
-  struct ____btf_map_##name       \
-  __attribute__ ((section(".maps." #name), used))   \
-    ____btf_map_##name = { }
+#ifndef KLEE_VERIFICATION
+// ============================================================================
+// BTF-style map definitions for lifter mode (libbpf v1.0+ compatible)
+// ============================================================================
 
+// control array. contains metadata such as default router mac
+// and/or interfaces ifindexes
+struct {
+  __uint(type, BPF_MAP_TYPE_ARRAY);
+  __uint(max_entries, CTL_MAP_SIZE);
+  __type(key, __u32);
+  __type(value, struct ctl_value);
+} ctl_array SEC(".maps");
+
+#ifdef KATRAN_INTROSPECTION
+struct {
+  __uint(type, BPF_MAP_TYPE_PERF_EVENT_ARRAY);
+  __uint(max_entries, MAX_SUPPORTED_CPUS);
+  __type(key, int);
+  __type(value, __u32);
+} event_pipe SEC(".maps");
+#endif
+
+#ifdef INLINE_DECAP_GENERIC
+struct {
+  __uint(type, BPF_MAP_TYPE_HASH);
+  __uint(max_entries, MAX_VIPS);
+  __type(key, struct address);
+  __type(value, __u32);
+} decap_dst SEC(".maps");
+
+struct {
+  __uint(type, BPF_MAP_TYPE_PROG_ARRAY);
+  __uint(max_entries, SUBPROGRAMS_ARRAY_SIZE);
+  __type(key, __u32);
+  __type(value, __u32);
+} subprograms SEC(".maps");
+#endif
+
+#ifdef GUE_ENCAP
+struct {
+  __uint(type, BPF_MAP_TYPE_ARRAY);
+  __uint(max_entries, 2);
+  __type(key, __u32);
+  __type(value, struct real_definition);
+} pckt_srcs SEC(".maps");
+#endif
+
+#else
+// ============================================================================
+// Legacy map definitions for default/normal BPF compilation mode
+// ============================================================================
+
+#include "bpf_map_def.h"
 
 // control array. contains metadata such as default router mac
 // and/or interfaces ifindexes
@@ -50,12 +95,10 @@ struct bpf_map_def SEC("maps") ctl_array = {
   .value_size = sizeof(struct ctl_value),
   .max_entries = CTL_MAP_SIZE,
   .map_flags = NO_FLAGS,
-  .map_id = -1,
 };
 BPF_ANNOTATE_KV_PAIR(ctl_array, __u32, struct ctl_value);
 
 #ifdef KATRAN_INTROSPECTION
-
 struct bpf_map_def SEC("maps") event_pipe = {
     .type = BPF_MAP_TYPE_PERF_EVENT_ARRAY,
     .key_size = sizeof(int),
@@ -64,7 +107,6 @@ struct bpf_map_def SEC("maps") event_pipe = {
     .map_flags = NO_FLAGS,
 };
 BPF_ANNOTATE_KV_PAIR(event_pipe, int, __u32);
-
 #endif
 
 #ifdef INLINE_DECAP_GENERIC
@@ -82,6 +124,7 @@ struct bpf_map_def SEC("maps") subprograms = {
     .key_size = sizeof(__u32),
     .value_size = sizeof(__u32),
     .max_entries = SUBPROGRAMS_ARRAY_SIZE,
+  .map_flags = NO_FLAGS,
 };
 BPF_ANNOTATE_KV_PAIR(subprograms, __u32, __u32);
 #endif
@@ -99,5 +142,7 @@ struct bpf_map_def SEC("maps") pckt_srcs = {
 };
 BPF_ANNOTATE_KV_PAIR(pckt_srcs, __u32, struct real_definition);
 #endif
+
+#endif // !KLEE_VERIFICATION
 
 #endif // of __CONTROL_DATA_MAPS_H

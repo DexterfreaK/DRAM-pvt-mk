@@ -1,0 +1,22 @@
+services:
+  krakenguard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: krakenguard
+    privileged: true
+    volumes:
+      - ./socket:/var/run
+      - ./data:/data
+      - /sys/fs/bpf:/sys/fs/bpf
+      - /sys/kernel/debug:/sys/kernel/debug:ro
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+          cpus: '1'
+
+volumes:
+  krakenguard-socket:
+  krakenguard-data:

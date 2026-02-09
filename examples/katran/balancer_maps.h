@@ -28,15 +28,93 @@
 #include "balancer_consts.h"
 #include "balancer_structs.h"
 
+#ifndef KLEE_VERIFICATION
+// ============================================================================
+// BTF-style map definitions for lifter mode (libbpf v1.0+ compatible)
+// ============================================================================
 
-#define BPF_ANNOTATE_KV_PAIR(name, type_key, type_val)    \
-  struct ____btf_map_##name {       \
-    type_key key;         \
-    type_val value;         \
-  };              \
-  struct ____btf_map_##name       \
-  __attribute__ ((section(".maps." #name), used))   \
-    ____btf_map_##name = { }
+// map, which contains all the vips for which we are doing load balancing
+struct {
+  __uint(type, BPF_MAP_TYPE_HASH);
+  __uint(max_entries, MAX_VIPS);
+  __type(key, struct vip_definition);
+  __type(value, struct vip_meta);
+} vip_map SEC(".maps");
+
+// map which contains cpu core to lru mapping (simplified for lifter compatibility)
+// Note: In lifter mode (when not using KLEE_VERIFICATION), we use a single LRU hash map instead of array-of-maps
+// fallback_cache is not needed since we access lru_mapping directly
+struct {
+  __uint(type, BPF_MAP_TYPE_LRU_HASH);
+  __uint(max_entries, DEFAULT_LRU_SIZE);
+  __type(key, struct flow_key);
+  __type(value, struct real_pos_lru);
+} lru_mapping SEC(".maps");
+
+// map which contains all vip to real id mappings
+struct {
+  __uint(type, BPF_MAP_TYPE_ARRAY);
+  __uint(max_entries, CH_RINGS_SIZE);
+  __type(key, __u32);
+  __type(value, __u32);
+} ch_rings SEC(".maps");
+
+// map which contains opaque real's id to real definition mapping
+struct {
+  __uint(type, BPF_MAP_TYPE_ARRAY);
+  __uint(max_entries, MAX_REALS);
+  __type(key, __u32);
+  __type(value, struct real_definition);
+} reals SEC(".maps");
+
+// map with per real pps/bps statistic
+struct {
+  __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+  __uint(max_entries, MAX_REALS);
+  __type(key, __u32);
+  __type(value, struct lb_stats);
+} reals_stats SEC(".maps");
+
+// map w/ per vip statistics
+struct {
+  __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+  __uint(max_entries, STATS_MAP_SIZE);
+  __type(key, __u32);
+  __type(value, struct lb_stats);
+} stats SEC(".maps");
+
+// map for quic connection-id to real's id mapping
+struct {
+  __uint(type, BPF_MAP_TYPE_ARRAY);
+  __uint(max_entries, MAX_REALS);
+  __type(key, __u32);
+  __type(value, __u32);
+} quic_mapping SEC(".maps");
+
+#ifdef LPM_SRC_LOOKUP
+struct {
+  __uint(type, BPF_MAP_TYPE_LPM_TRIE);
+  __uint(max_entries, MAX_LPM_SRC);
+  __uint(map_flags, BPF_F_NO_PREALLOC);
+  __type(key, struct v4_lpm_key);
+  __type(value, __u32);
+} lpm_src_v4 SEC(".maps");
+
+struct {
+  __uint(type, BPF_MAP_TYPE_LPM_TRIE);
+  __uint(max_entries, MAX_LPM_SRC);
+  __uint(map_flags, BPF_F_NO_PREALLOC);
+  __type(key, struct v6_lpm_key);
+  __type(value, __u32);
+} lpm_src_v6 SEC(".maps");
+#endif
+
+#else
+// ============================================================================
+// Legacy map definitions for default/normal BPF compilation mode
+// ============================================================================
+
+#include "bpf_map_def.h"
 
 // map, which contains all the vips for which we are doing load balancing
 struct bpf_map_def SEC("maps") vip_map = {
@@ -45,31 +123,30 @@ struct bpf_map_def SEC("maps") vip_map = {
   .value_size = sizeof(struct vip_meta),
   .max_entries = MAX_VIPS,
   .map_flags = NO_FLAGS,
-  .map_id = -1,
 };
 BPF_ANNOTATE_KV_PAIR(vip_map, struct vip_definition, struct vip_meta);
 
-
-// map which contains cpu core to lru mapping
-struct bpf_map_def SEC("maps") lru_mapping = {
-  .type = BPF_MAP_TYPE_ARRAY_OF_MAPS,
-  .key_size = sizeof(__u32),
-  .value_size = sizeof(__u32),
-  .max_entries = MAX_SUPPORTED_CPUS,
-  .map_flags = NO_FLAGS,
-  .map_id = -1,
-};
-
-// fallback lru. we should never hit this one outside of unittests
+// fallback lru. iterate over it if sobind to cpu is not working or sobind
+// is not enabled
 struct bpf_map_def SEC("maps") fallback_cache = {
   .type = BPF_MAP_TYPE_LRU_HASH,
   .key_size = sizeof(struct flow_key),
   .value_size = sizeof(struct real_pos_lru),
   .max_entries = DEFAULT_LRU_SIZE,
   .map_flags = NO_FLAGS,
-  .map_id = -1,
 };
 BPF_ANNOTATE_KV_PAIR(fallback_cache, struct flow_key, struct real_pos_lru);
+
+// map which contains cpu core to lru mapping
+struct bpf_map_def SEC("maps") lru_mapping = {
+  .type = BPF_MAP_TYPE_ARRAY_OF_MAPS,
+  .key_size = sizeof(__u32),
+  .max_entries = MAX_SUPPORTED_CPUS,
+  .map_flags = NO_FLAGS,
+#ifndef KLEE_VERIFICATION
+  .inner_map_idx = 0,
+#endif
+};
 
 // map which contains all vip to real id mappings
 struct bpf_map_def SEC("maps") ch_rings = {
@@ -78,7 +155,6 @@ struct bpf_map_def SEC("maps") ch_rings = {
   .value_size = sizeof(__u32),
   .max_entries = CH_RINGS_SIZE,
   .map_flags = NO_FLAGS,
-  .map_id = -1,
 };
 BPF_ANNOTATE_KV_PAIR(ch_rings, __u32, __u32);
 
@@ -89,7 +165,6 @@ struct bpf_map_def SEC("maps") reals = {
   .value_size = sizeof(struct real_definition),
   .max_entries = MAX_REALS,
   .map_flags = NO_FLAGS,
-  .map_id = -1,
 };
 BPF_ANNOTATE_KV_PAIR(reals, __u32, struct real_definition);
 
@@ -100,7 +175,6 @@ struct bpf_map_def SEC("maps") reals_stats = {
   .value_size = sizeof(struct lb_stats),
   .max_entries = MAX_REALS,
   .map_flags = NO_FLAGS,
-  .map_id = -1,
 };
 BPF_ANNOTATE_KV_PAIR(reals_stats, __u32, struct lb_stats);
 
@@ -111,7 +185,6 @@ struct bpf_map_def SEC("maps") stats = {
   .value_size = sizeof(struct lb_stats),
   .max_entries = STATS_MAP_SIZE,
   .map_flags = NO_FLAGS,
-  .map_id = -1,
 };
 BPF_ANNOTATE_KV_PAIR(stats, __u32, struct lb_stats);
 
@@ -122,7 +195,6 @@ struct bpf_map_def SEC("maps") quic_mapping = {
   .value_size = sizeof(__u32),
   .max_entries = MAX_REALS,
   .map_flags = NO_FLAGS,
-  .map_id = -1,
 };
 BPF_ANNOTATE_KV_PAIR(quic_mapping, __u32, __u32);
 
@@ -133,7 +205,6 @@ struct bpf_map_def SEC("maps") lpm_src_v4 = {
   .value_size = sizeof(__u32),
   .max_entries = MAX_LPM_SRC,
   .map_flags = BPF_F_NO_PREALLOC,
-  .map_id = -1,
 };
 BPF_ANNOTATE_KV_PAIR(lpm_src_v4, struct v4_lpm_key, __u32);
 
@@ -143,10 +214,10 @@ struct bpf_map_def SEC("maps") lpm_src_v6 = {
   .value_size = sizeof(__u32),
   .max_entries = MAX_LPM_SRC,
   .map_flags = BPF_F_NO_PREALLOC,
-  .map_id = -1,
 };
 BPF_ANNOTATE_KV_PAIR(lpm_src_v6, struct v6_lpm_key, __u32);
-
 #endif
+
+#endif // !KLEE_VERIFICATION
 
 #endif // of _BALANCER_MAPS

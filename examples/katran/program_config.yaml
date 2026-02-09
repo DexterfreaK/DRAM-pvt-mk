@@ -1,0 +1,15 @@
+# Program configuration for Katran load balancer
+# Used by generateIR.py for the DRACO verification flow
+
+extern_func: balancer_ingress
+
+maps:
+  # Map definitions for Katran
+  - name: vip_map
+  - name: lru_mapping
+  - name: ch_rings
+  - name: reals
+  - name: reals_stats
+  - name: stats
+  - name: quic_mapping
+  - name: ctl_array

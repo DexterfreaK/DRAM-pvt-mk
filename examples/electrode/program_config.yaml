@@ -1,0 +1,22 @@
+# Program configuration for DRACO verification
+# Extensible format for future features
+
+tailcalls:
+  map_progs_xdp:
+    - index: 0
+      function: HandlePrepare_main
+    - index: 1
+      function: HandleRequest_main
+    - index: 2
+      function: HandlePrepareOK_main
+    - index: 3
+      function: WriteBuffer_main
+    - index: 4
+      function: PrepareFastReply_main
+
+# Future sections can be added here:
+# ringbufs:
+#   ...
+# perf_events:
+#   ...
+

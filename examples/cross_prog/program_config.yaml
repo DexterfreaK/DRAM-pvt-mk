@@ -1,0 +1,35 @@
+# Program configuration for cross-program analysis
+# Used by generateCrossProgramIR.py for cross-program verification
+
+mode: cross-program
+
+program1:
+  entry_func: balancer_ingress  # Optional, can be overridden by command-line arg
+
+program2:
+  entry_func: fastPaxos_main   # Optional, can be overridden by command-line arg
+  # Tailcall configuration for program 2 (electrode)
+  tailcalls:
+    map_progs_xdp:
+      - index: 0
+        function: HandlePrepare_main
+      - index: 1
+        function: HandleRequest_main
+      - index: 2
+        function: HandlePrepareOK_main
+      - index: 3
+        function: WriteBuffer_main
+      - index: 4
+        function: PrepareFastReply_main
+
+# Maps are auto-detected from both programs, but can be specified here if needed
+# maps:
+#   - name: shared_map_name
+
+# Map initialization (optional)
+# map_init:
+#   - name: map_name
+#     entries:
+#       - key: 0
+#         value: 42
+
