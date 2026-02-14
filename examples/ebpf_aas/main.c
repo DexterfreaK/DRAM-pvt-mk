@@ -28,10 +28,14 @@ struct __attribute__((__packed__)) pkt {
 
 int main() {
 
-	// init the ctx
+	// init the ctx: XDP computes udph as data + sizeof(ethhdr) + (ip->ihl*4).
+	// So udph == &pkt->udp only when ip->ihl == 5. Otherwise udph points into
+	// other bytes (still symbolic), so the port check can see 12345 and printf runs.
 	struct pkt *pkt = malloc(sizeof(struct pkt));
 	klee_make_symbolic(pkt, sizeof(struct pkt), "constraint_access_user_pkt");
 	pkt->ether.h_proto = htons(ETH_P_IP);
+	// pkt->ipv4.ihl = 5;   /* required so udph in XDP points at pkt->udp, not random offset */
+	// pkt->udp.dest = htons(12345);
 	struct xdp_md test;
 	test.data = (long)(&(pkt->ether));
 	test.data_end = (long)(pkt + 1);
@@ -40,12 +44,12 @@ int main() {
 
 	// execute
 	__start_verification();
-	if(bpf_ntohs(pkt->udp.dest) == 12345) {
+	// if(bpf_ntohs(pkt->udp.dest) == 12345) {
 		udp_echo_prog_1(&test);
-	} else if (bpf_ntohs(pkt->udp.dest) == 13245) {
+	// } else if (bpf_ntohs(pkt->udp.dest) == 13245) {
 		__separate();
 		udp_echo_prog_2(&test);
-	}
+	// }
 
 	return 0;
 }

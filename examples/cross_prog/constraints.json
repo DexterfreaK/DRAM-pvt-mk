@@ -8,6 +8,10 @@
             "access": "Read"
         },
         {
+            "name": "vip_map",
+            "access": "ReadWrite"
+        },
+        {
             "name": "map_ctr_state",
             "access": "ReadWrite"
         },
