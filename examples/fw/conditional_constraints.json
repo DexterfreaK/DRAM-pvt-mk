@@ -1,0 +1,57 @@
+{
+  "conditional_policies": {
+    "base_packet_read": {
+      "dependency": [],
+      "memory": [
+        {
+          "conditions": [],
+          "read-access": ["0-54"],
+          "write-access": ["x"]
+        }
+      ],
+      "map_access": [],
+      "helper": []
+    },
+    "allow_flow_table_rw": {
+      "dependency": [],
+      "memory": [],
+      "map_access": [
+        {
+          "name": "flow_ctx_table",
+          "access": "ReadWrite"
+        }
+      ],
+      "helper": ["bpf_map_lookup_elem", "bpf_map_update_elem"]
+    },
+    "tx_port_read_only": {
+      "dependency": [],
+      "memory": [],
+      "map_access": [
+        {
+          "name": "tx_port",
+          "access": "Read"
+        }
+      ],
+      "helper": ["bpf_map_lookup_elem"]
+    },
+    "conditional_ip_based_map": {
+      "dependency": ["base_packet_read"],
+      "memory": [
+        {
+          "conditions": [
+            {"offset": 26, "size": 4, "value": "0x0A000001"}
+          ],
+          "read-access": ["*"],
+          "write-access": ["x"]
+        }
+      ],
+      "map_access": [
+        {
+          "name": "special_map",
+          "access": "Read"
+        }
+      ],
+      "helper": []
+    }
+  }
+}

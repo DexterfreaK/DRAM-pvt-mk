@@ -29,6 +29,9 @@ COMMON_H := ${COMMON_OBJS:.o=.h}
 
 EXTRA_DEPS +=
 
+# Conditional policy config (override for test files 01-05, e.g. CONDITIONAL_CONFIG=conditional_constraints_01_minimal.json)
+CONDITIONAL_CONFIG ?= conditional_constraints.json
+
 # BPF-prog kern and userspace shares struct via header file:
 KERN_USER_H ?= $(wildcard common_kern_user.h)
 
@@ -370,6 +373,31 @@ verify-constraint-access: $(XDP_C) Makefile $(KERN_USER_H) $(EXTRA_DEPS)
 		-solver-backend=z3 -silent-klee-assume=true --exit-on-error -max-memory=750000 -search=dfs -single-object-resolution=true \
 		-verification=true -read-set=true -write-set=true -map-correlation=true -restrict-helper-function=true -enable-map-access-control=true  \
 		-enable-packet-constr=true -config-file="$(PWD)/constraints.json" $(XDP_TARGETS).bc
+
+verify-conditional-policy: $(XDP_C) Makefile $(KERN_USER_H) $(EXTRA_DEPS)
+	$(CLANG) \
+		-target bpf \
+		-DKLEE_VERIFICATION\
+		-DVERIFY_INTERACTIONS\
+		$(KLEE_BPF_CFLAGS) \
+		-I $(KLEE_INCLUDE) \
+		-D__USE_VMLINUX__ \
+		-D__TARGET_ARCH_x86 \
+		-DBPF_NO_PRESERVE_ACCESS_INDEX \
+		-Wall \
+		-Wno-unused-value \
+		-Wno-unused-variable \
+		-Wno-pointer-sign \
+		-Wno-compare-distinct-pointer-types \
+		-Werror \
+		-fno-discard-value-names \
+		-fno-builtin \
+		-O0 -emit-llvm -c -g $(XDP_C)
+	llvm-dis -show-annotations $(XDP_TARGETS).bc
+	taskset -c 0 /usr/bin/time -v \
+		klee -kdalloc -kdalloc-heap-start-address=0x00040000000 -kdalloc-heap-size=1 -libc=uclibc --external-calls=all --disable-verify \
+		-solver-backend=z3 -silent-klee-assume=true --exit-on-error -max-memory=750000 -search=dfs -single-object-resolution=true \
+		-verification=true -enable-conditional-policy -config-file="$(PWD)/$(CONDITIONAL_CONFIG)" $(XDP_TARGETS).bc
 
 run-klee: $(XDP_C) Makefile $(KERN_USER_H) $(EXTRA_DEPS)
 	$(CLANG) \

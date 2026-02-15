@@ -246,9 +246,10 @@ source_install_klee_func_ver()
 								-DENABLE_KLEE_UCLIBC=ON \
 								-DKLEE_UCLIBC_PATH="$BUILDDIR/klee-uclibc" \
 								-DENABLE_POSIX_RUNTIME=ON \
-								-DCMAKE_BUILD_TYPE=Release \
+								-DCMAKE_BUILD_TYPE=Debug \
 								-DENABLE_KLEE_ASSERTS=ON \
 								-DENABLE_DOXYGEN=ON \
+								-DENABLE_CONDITIONAL_POLICY=ON \
 								..
 		make -j$(nproc)
 	popd

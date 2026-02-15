@@ -1,0 +1,41 @@
+{
+  "conditional_policies": {
+    "base_packet_read_only": {
+      "dependency": [],
+      "memory": [
+        {
+          "conditions": [],
+          "read-access": ["0-54"],
+          "write-access": ["x"]
+        }
+      ],
+      "map_access": [],
+      "helper": []
+    },
+    "allow_flow_table_rw": {
+      "dependency": [],
+      "memory": [],
+      "map_access": [
+        {
+          "name": "flow_ctx_table",
+          "access": "ReadWrite"
+        }
+      ],
+      "helper": ["bpf_map_lookup_elem", "bpf_map_update_elem"]
+    },
+    "when_ip_10_0_0_1": {
+      "dependency": ["base_packet_read_only"],
+      "memory": [
+        {
+          "conditions": [
+            { "offset": 26, "size": 4, "value": "0x0A000001" }
+          ],
+          "read-access": ["26-36"],
+          "write-access": ["x"]
+        }
+      ],
+      "map_access": [],
+      "helper": []
+    }
+  }
+}
