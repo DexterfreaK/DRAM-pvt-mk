@@ -1,16 +1,16 @@
 {
   "conditional_policies": {
     "base_packet_read_only": {
-      "dependency": [],
+      "dependency": ["allow_flow_table_rw"],
       "memory": [
         {
           "conditions": [],
-          "read-access": ["0-5"],
+          "read-access": ["0-56"],
           "write-access": ["x"]
         }
       ],
       "map_access": [],
-      "helper": []
+      "restricted_helpers": []
     },
     "allow_flow_table_rw": {
       "dependency": [],
@@ -21,7 +21,7 @@
           "access": "ReadWrite"
         }
       ],
-      "helper": ["bpf_map_lookup_elem", "bpf_map_update_elem"]
+      "restricted_helpers": []
     }
   }
 }

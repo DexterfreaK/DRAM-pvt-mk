@@ -10,7 +10,7 @@
         }
       ],
       "map_access": [],
-      "helper": []
+      "restricted_helpers": []
     }
   }
 }

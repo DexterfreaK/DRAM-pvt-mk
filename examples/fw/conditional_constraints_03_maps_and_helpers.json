@@ -10,7 +10,7 @@
         }
       ],
       "map_access": [],
-      "helper": []
+      "restricted_helpers": []
     },
     "allow_flow_table_rw": {
       "dependency": [],
@@ -21,7 +21,7 @@
           "access": "ReadWrite"
         }
       ],
-      "helper": ["bpf_map_lookup_elem", "bpf_map_update_elem"]
+      "restricted_helpers": []
     },
     "tx_port_read_only": {
       "dependency": [],
@@ -32,7 +32,7 @@
           "access": "Read"
         }
       ],
-      "helper": ["bpf_map_lookup_elem"]
+      "restricted_helpers": []
     }
   }
 }
