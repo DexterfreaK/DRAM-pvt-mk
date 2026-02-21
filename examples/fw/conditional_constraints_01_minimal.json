@@ -1,0 +1,16 @@
+{
+  "conditional_policies": {
+    "base_packet_read_only": {
+      "dependency": [],
+      "memory": [
+        {
+          "conditions": [],
+          "read-access": ["0-54"],
+          "write-access": ["x"]
+        }
+      ],
+      "map_access": [],
+      "allowed_helpers": ["*"]
+    }
+  }
+}

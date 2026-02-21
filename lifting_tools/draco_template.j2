@@ -277,6 +277,7 @@ int main() {
     // Execute program
     __start_verification();
     int val = {{ extern_func }}(pt_ctx);
+    __record_ebpf_return_value(val);
 {% elif program_type == 'tracepoint' %}
     // Tracepoint program - use raw_tracepoint_args context
     // NOTE: The lifter generates code expecting struct xdp_md* but accesses it as
@@ -304,6 +305,7 @@ int main() {
     // The memory layout (__u64 array) matches what the lifted code expects
     __start_verification();
     int val = {{ extern_func }}((struct xdp_md *)&tp_ctx);
+    __record_ebpf_return_value(val);
 {% else %}
     // XDP program - use xdp_md context
     struct pkt *pkt = malloc(sizeof(struct pkt));
@@ -318,6 +320,7 @@ int main() {
     // Execute program
     __start_verification();
     int val = {{ extern_func }}(&test);
+    __record_ebpf_return_value(val);
 {% endif %}
     return 0;
 }

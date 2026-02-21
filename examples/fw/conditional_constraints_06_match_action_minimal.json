@@ -1,0 +1,28 @@
+{
+  "conditional_policies": {
+    "check_ethertype_is_ipv4": {
+      "dependency": [],
+      "memory_conditions": [
+        {
+          "offset": 12,
+          "size": 2,
+          "value": "0x0800"
+        }
+      ],
+      "map_access": [],
+      "allowed_helpers": ["*"]
+    },
+    "enforce_no_write_if_ipv4": {
+      "dependency": ["check_ethertype_is_ipv4"],
+      "dependency_logic": "AND",
+      "memory_access": [
+        {
+          "read-access": ["*"],
+          "write-access": ["x"]
+        }
+      ],
+      "map_access": [],
+      "allowed_helpers": ["*"]
+    }
+  }
+}

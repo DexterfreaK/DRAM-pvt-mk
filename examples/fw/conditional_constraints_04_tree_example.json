@@ -1,0 +1,48 @@
+{
+  "conditional_policies": {
+    "base_packet_read": {
+      "dependency": [],
+      "memory": [{
+        "conditions": [],
+        "read-access": ["0-54"],
+        "write-access": ["x"]
+      }],
+      "map_access": [],
+      "allowed_helpers": ["*"]
+    },
+    "base_map_access": {
+      "dependency": [],
+      "memory": [],
+      "map_access": [{
+        "name": "flow_ctx_table",
+        "access": "Read"
+      }],
+      "allowed_helpers": ["bpf_map_lookup_elem"]
+    },
+    "intermediate_check": {
+      "dependency": ["base_packet_read"],
+      "dependency_logic": "AND",
+      "memory": [{
+        "conditions": [{
+          "offset": 12,
+          "size": 2,
+          "value": "0x0800"
+        }],
+        "read-access": ["*"],
+        "write-access": ["x"]
+      }],
+      "map_access": [],
+      "allowed_helpers": ["*"]
+    },
+    "final_policy": {
+      "dependency": ["intermediate_check", "base_map_access"],
+      "dependency_logic": "AND",
+      "memory": [],
+      "map_access": [{
+        "name": "tx_port",
+        "access": "ReadWrite"
+      }],
+      "allowed_helpers": ["bpf_map_lookup_elem", "bpf_map_update_elem"]
+    }
+  }
+}
