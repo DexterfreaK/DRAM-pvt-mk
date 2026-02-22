@@ -1,0 +1,37 @@
+{
+  "conditional_policies": {
+    "global_policy": {
+      "dependency": [],
+      "memory_conditions": [],
+      "memory_access": [
+        {
+          "read-access": ["0-1500"],
+          "write-access": ["0-1500"]
+        }
+      ],
+      "map_access": [
+        {
+          "name": "map_configure",
+          "access": "Read"
+        },
+        {
+          "name": "map_ctr_state",
+          "access": "ReadWrite"
+        },
+        {
+          "name": "map_msg_lastOp",
+          "access": "ReadWrite"
+        },
+        {
+          "name": "map_quorum",
+          "access": "ReadWrite"
+        },
+        {
+          "name": "batch_context",
+          "access": "ReadWrite"
+        }
+      ],
+      "allowed_helpers": ["bpf_map_update_elem"]
+    }
+  }
+}

@@ -1,6 +1,6 @@
 {
   "conditional_policies": {
-    "base_packet_read_only": {
+    "global_policy": {
       "dependency": [],
       "memory_conditions": [],
       "memory_access": [
@@ -9,7 +9,16 @@
           "write-access": ["x"]
         }
       ],
-      "map_access": [],
+      "map_access": [
+        {
+          "name": "array_map",
+          "access": "ReadWrite"
+        },
+        {
+          "name": "hash_map",
+          "access": "ReadWrite"
+        }
+      ],
       "allowed_helpers": ["*"]
     }
   }

@@ -3,9 +3,9 @@
     "base_packet_read_only": {
       "dependency": ["allow_flow_table_rw"],
       "dependency_logic": "AND",
-      "memory": [
+      "memory_conditions": [],
+      "memory_access": [
         {
-          "conditions": [],
           "read-access": ["0-56"],
           "write-access": ["x"]
         }
@@ -15,7 +15,7 @@
     },
     "allow_flow_table_rw": {
       "dependency": [],
-      "memory": [],
+      "memory_conditions": [],
       "map_access": [
         {
           "name": "flow_ctx_table",

@@ -1,15 +1,20 @@
 {
   "conditional_policies": {
-    "base_packet_read_only": {
+    "global_policy": {
       "dependency": [],
       "memory_conditions": [],
       "memory_access": [
         {
-          "read-access": ["0-54"],
+          "read-access": ["0-222"],
           "write-access": ["x"]
         }
       ],
-      "map_access": [],
+      "map_access": [
+        {
+          "name": "ipfix_probe_map",
+          "access": "ReadWrite"
+        }
+      ],
       "allowed_helpers": ["*"]
     }
   }

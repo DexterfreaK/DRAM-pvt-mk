@@ -5,18 +5,14 @@
       "memory_conditions": [],
       "memory_access": [
         {
-          "read-access": ["0-54"],
-          "write-access": ["x"]
+          "read-access": ["0-1580"],
+          "write-access": ["54-57"]
         }
       ],
       "map_access": [
         {
-          "name": "tx_port",
+          "name": "my_map",
           "access": "Read"
-        },
-        {
-          "name": "flow_ctx_table",
-          "access": "ReadWrite"
         }
       ],
       "allowed_helpers": ["*"]

@@ -1,0 +1,33 @@
+{
+  "conditional_policies": {
+    "global_policy": {
+      "dependency": [],
+      "memory_conditions": [],
+      "memory_access": [
+        {
+          "read-access": ["0-1554"],
+          "write-access": ["0-1554"]
+        }
+      ],
+      "map_access": [
+        {
+          "name": "map_kcache",
+          "access": "ReadWrite"
+        },
+        {
+          "name": "map_keys",
+          "access": "ReadWrite"
+        },
+        {
+          "name": "map_parsing_context",
+          "access": "ReadWrite"
+        },
+        {
+          "name": "map_stats",
+          "access": "ReadWrite"
+        }
+      ],
+      "allowed_helpers": ["*"]
+    }
+  }
+}

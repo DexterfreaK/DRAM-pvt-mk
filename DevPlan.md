@@ -571,7 +571,7 @@ Useful for debugging complex policies.
   - [x] `conditional_constraints_06_match_action_minimal.json`
   - [x] `conditional_constraints_07_match_action_tree.json`
   - [x] `conditional_constraints_08_or_logic.json`
-  - [x] `CONDITIONAL_POLICY_README.md`
+  - [x] Documentation (see root `DOCUMENTATION.md`)
   
 - [x] Phase 5: Statistics and Reporting
   - [x] Implement `updatePolicyStatistics()`

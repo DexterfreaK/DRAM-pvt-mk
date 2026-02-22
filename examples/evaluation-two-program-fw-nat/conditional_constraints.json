@@ -6,20 +6,24 @@
       "memory_access": [
         {
           "read-access": ["0-54"],
-          "write-access": ["x"]
+          "write-access": ["24-30"]
         }
       ],
       "map_access": [
         {
-          "name": "tx_port",
+          "name": "whitelist_addresses",
           "access": "Read"
         },
         {
-          "name": "flow_ctx_table",
-          "access": "ReadWrite"
+          "name": "inner2outer",
+          "access": "Read"
+        },
+        {
+          "name": "outer2inner",
+          "access": "Read"
         }
       ],
-      "allowed_helpers": ["*"]
+      "allowed_helpers": ["bpf_ringbuf_reserve"]
     }
   }
 }

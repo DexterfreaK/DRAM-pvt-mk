@@ -1,12 +1,12 @@
 {
   "conditional_policies": {
-    "base_packet_read_only": {
+    "global_policy": {
       "dependency": [],
       "memory_conditions": [],
       "memory_access": [
         {
-          "read-access": ["0-54"],
-          "write-access": ["x"]
+          "read-access": ["0-1500"],
+          "write-access": ["0-1500"]
         }
       ],
       "map_access": [],

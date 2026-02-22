@@ -2,9 +2,9 @@
   "conditional_policies": {
     "base_packet_read_only": {
       "dependency": [],
-      "memory": [
+      "memory_conditions": [],
+      "memory_access": [
         {
-          "conditions": [],
           "read-access": ["0-54"],
           "write-access": ["x"]
         }
@@ -14,7 +14,7 @@
     },
     "allow_flow_table_rw": {
       "dependency": [],
-      "memory": [],
+      "memory_conditions": [],
       "map_access": [
         {
           "name": "flow_ctx_table",
@@ -26,11 +26,11 @@
     "when_ip_10_0_0_1": {
       "dependency": ["base_packet_read_only"],
       "dependency_logic": "AND",
-      "memory": [
+      "memory_conditions": [
+        { "offset": 26, "size": 4, "value": "0x0A000001" }
+      ],
+      "memory_access": [
         {
-          "conditions": [
-            { "offset": 26, "size": 4, "value": "0x0A000001" }
-          ],
           "read-access": ["26-36"],
           "write-access": ["x"]
         }

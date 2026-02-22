@@ -2,9 +2,9 @@
   "conditional_policies": {
     "base_packet_read_only": {
       "dependency": [],
-      "memory": [
+      "memory_conditions": [],
+      "memory_access": [
         {
-          "conditions": [],
           "read-access": ["0-54"],
           "write-access": ["x"]
         }
@@ -14,7 +14,7 @@
     },
     "allow_flow_table_rw": {
       "dependency": [],
-      "memory": [],
+      "memory_conditions": [],
       "map_access": [
         {
           "name": "flow_ctx_table",
@@ -25,7 +25,7 @@
     },
     "tx_port_read_only": {
       "dependency": [],
-      "memory": [],
+      "memory_conditions": [],
       "map_access": [
         {
           "name": "tx_port",

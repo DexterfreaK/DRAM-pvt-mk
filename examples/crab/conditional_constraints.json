@@ -5,17 +5,25 @@
       "memory_conditions": [],
       "memory_access": [
         {
-          "read-access": ["0-54"],
-          "write-access": ["x"]
+          "read-access": ["0-1554"],
+          "write-access": ["0-1500"]
         }
       ],
       "map_access": [
         {
-          "name": "tx_port",
+          "name": "targets_map",
           "access": "Read"
         },
         {
-          "name": "flow_ctx_table",
+          "name": "macs_map",
+          "access": "Read"
+        },
+        {
+          "name": "targets_count",
+          "access": "Read"
+        },
+        {
+          "name": "cpu_rr_idx",
           "access": "ReadWrite"
         }
       ],

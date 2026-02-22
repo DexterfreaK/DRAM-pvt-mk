@@ -1,0 +1,53 @@
+{
+  "conditional_policies": {
+    "global_policy": {
+      "dependency": [],
+      "memory_conditions": [],
+      "memory_access": [
+        {
+          "read-access": ["0-146"],
+          "write-access": ["0-146"]
+        }
+      ],
+      "map_access": [
+        {
+          "name": "ch_rings",
+          "access": "Read"
+        },
+        {
+          "name": "reals",
+          "access": "Read"
+        },
+        {
+          "name": "quic_mapping",
+          "access": "Read"
+        },
+        {
+          "name": "ctl_array",
+          "access": "Read"
+        },
+        {
+          "name": "vip_map",
+          "access": "ReadWrite"
+        },
+        {
+          "name": "stats",
+          "access": "ReadWrite"
+        },
+        {
+          "name": "reals_stats",
+          "access": "ReadWrite"
+        },
+        {
+          "name": "fallback_cache",
+          "access": "ReadWrite"
+        },
+        {
+          "name": "lru_mapping",
+          "access": "ReadWrite"
+        }
+      ],
+      "allowed_helpers": ["testing1", "testing_dhdhd"]
+    }
+  }
+}

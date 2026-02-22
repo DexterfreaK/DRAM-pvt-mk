@@ -1,0 +1,34 @@
+{
+  "conditional_policies": {
+    "check_ipv4": {
+      "dependency": [],
+      "memory_conditions": [
+        { "offset": 12, "size": 2, "value": "0x0800" }
+      ],
+      "map_access": [],
+      "allowed_helpers": ["*"]
+    },
+    "enforce_boundary_test": {
+      "dependency": ["check_ipv4"],
+      "dependency_logic": "AND",
+      "memory_conditions": [],
+      "memory_access": [
+        {
+          "read-access": ["0-54"],
+          "write-access": ["x"]
+        }
+      ],
+      "map_access": [
+        {
+          "name": "flow_ctx_table",
+          "access": "Read"
+        }
+      ],
+      "allowed_helpers": ["bpf_map_lookup_elem"],
+      "return_value_rules": {
+        "allowed": [2],
+        "forbidden": [0]
+      }
+    }
+  }
+}
