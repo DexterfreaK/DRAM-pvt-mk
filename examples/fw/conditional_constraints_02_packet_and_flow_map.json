@@ -2,6 +2,7 @@
   "conditional_policies": {
     "base_packet_read_only": {
       "dependency": ["allow_flow_table_rw"],
+      "dependency_logic": "AND",
       "memory": [
         {
           "conditions": [],
@@ -10,7 +11,7 @@
         }
       ],
       "map_access": [],
-      "restricted_helpers": []
+      "allowed_helpers": ["*"]
     },
     "allow_flow_table_rw": {
       "dependency": [],
@@ -21,7 +22,7 @@
           "access": "ReadWrite"
         }
       ],
-      "restricted_helpers": []
+      "allowed_helpers": ["*"]
     }
   }
 }

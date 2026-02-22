@@ -8,7 +8,7 @@
         "write-access": ["x"]
       }],
       "map_access": [],
-      "restricted_helpers": []
+      "allowed_helpers": ["*"]
     },
     "base_map_access": {
       "dependency": [],
@@ -17,10 +17,11 @@
         "name": "flow_ctx_table",
         "access": "Read"
       }],
-      "restricted_helpers": []
+      "allowed_helpers": ["bpf_map_lookup_elem"]
     },
     "intermediate_check": {
       "dependency": ["base_packet_read"],
+      "dependency_logic": "AND",
       "memory": [{
         "conditions": [{
           "offset": 12,
@@ -31,16 +32,17 @@
         "write-access": ["x"]
       }],
       "map_access": [],
-      "restricted_helpers": ["bpf_trace_printk"]
+      "allowed_helpers": ["*"]
     },
     "final_policy": {
       "dependency": ["intermediate_check", "base_map_access"],
+      "dependency_logic": "AND",
       "memory": [],
       "map_access": [{
         "name": "tx_port",
         "access": "ReadWrite"
       }],
-      "restricted_helpers": ["bpf_probe_read", "bpf_probe_write_user"]
+      "allowed_helpers": ["bpf_map_lookup_elem", "bpf_map_update_elem"]
     }
   }
 }

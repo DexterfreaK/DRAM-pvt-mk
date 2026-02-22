@@ -1,0 +1,38 @@
+{
+  "conditional_policies": {
+    "check_ipv4": {
+      "dependency": [],
+      "memory_conditions": [
+        {
+          "offset": 12,
+          "size": 2,
+          "value": "0x0800"
+        }
+      ],
+      "map_access": [],
+      "allowed_helpers": ["*"]
+    },
+    "check_ipv6": {
+      "dependency": [],
+      "memory_conditions": [
+        {
+          "offset": 12,
+          "size": 2,
+          "value": "0x86DD"
+        }
+      ],
+      "map_access": [],
+      "allowed_helpers": ["*"]
+    },
+    "ip_packets_pass_or_drop": {
+      "dependency": ["check_ipv4", "check_ipv6"],
+      "dependency_logic": "OR",
+      "return_value_rules": {
+        "allowed": [1, 2],
+        "forbidden": [0, 3, 4]
+      },
+      "map_access": [],
+      "allowed_helpers": ["*"]
+    }
+  }
+}

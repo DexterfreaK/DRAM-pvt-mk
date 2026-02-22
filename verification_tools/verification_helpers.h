@@ -11,6 +11,11 @@ void __separate() {
 
 void __start_verification() {}
 
+void __record_ebpf_return_value(int val) {
+  // Intercepted by KLEE to capture the eBPF program's return value
+  // for return value constraint checking
+}
+
 void assume_map_contains_key(struct bpf_map_def *map, const void *key) {
   klee_assume(bpf_map_lookup_elem(map, key) != NULL);
 }

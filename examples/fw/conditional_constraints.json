@@ -10,7 +10,7 @@
         }
       ],
       "map_access": [],
-      "helper": []
+      "allowed_helpers": ["*"]
     },
     "allow_flow_table_rw": {
       "dependency": [],
@@ -21,7 +21,7 @@
           "access": "ReadWrite"
         }
       ],
-      "helper": ["bpf_map_lookup_elem", "bpf_map_update_elem"]
+      "allowed_helpers": ["*"]
     },
     "tx_port_read_only": {
       "dependency": [],
@@ -32,14 +32,15 @@
           "access": "Read"
         }
       ],
-      "helper": ["bpf_map_lookup_elem"]
+      "allowed_helpers": ["*"]
     },
     "conditional_ip_based_map": {
       "dependency": ["base_packet_read"],
+      "dependency_logic": "AND",
       "memory": [
         {
           "conditions": [
-            {"offset": 26, "size": 4, "value": "0x0A000001"}
+            { "offset": 26, "size": 4, "value": "0x0A000001" }
           ],
           "read-access": ["*"],
           "write-access": ["x"]
@@ -51,7 +52,7 @@
           "access": "Read"
         }
       ],
-      "helper": []
+      "allowed_helpers": ["*"]
     }
   }
 }

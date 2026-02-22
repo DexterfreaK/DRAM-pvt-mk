@@ -1,0 +1,26 @@
+{
+  "conditional_policies": {
+    "check_ipv4": {
+      "dependency": [],
+      "memory_conditions": [
+        {
+          "offset": 12,
+          "size": 2,
+          "value": "0x0800"
+        }
+      ],
+      "map_access": [],
+      "allowed_helpers": ["*"]
+    },
+    "pass_only_for_ipv4": {
+      "dependency": ["check_ipv4"],
+      "dependency_logic": "AND",
+      "return_value_rules": {
+        "allowed": [2],
+        "forbidden": [0, 4]
+      },
+      "map_access": [],
+      "allowed_helpers": ["*"]
+    }
+  }
+}

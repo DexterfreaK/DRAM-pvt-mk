@@ -1,0 +1,54 @@
+{
+  "conditional_policies": {
+    "check_ipv4": {
+      "dependency": [],
+      "memory_conditions": [
+        {
+          "offset": 12,
+          "size": 2,
+          "value": "0x0800"
+        }
+      ],
+      "map_access": [],
+      "allowed_helpers": ["*"]
+    },
+    "restrict_mac_write_if_ipv4": {
+      "dependency": ["check_ipv4"],
+      "dependency_logic": "AND",
+      "memory_conditions": [],
+      "memory_access": [
+        {
+          "read-access": ["*"],
+          "write-access": ["12-1500"]
+        }
+      ],
+      "map_access": [],
+      "allowed_helpers": ["*"]
+    },
+    "check_http_port": {
+      "dependency": ["restrict_mac_write_if_ipv4"],
+      "dependency_logic": "AND",
+      "memory_conditions": [
+        {
+          "offset": 36,
+          "size": 2,
+          "value": "0x0050"
+        }
+      ],
+      "memory_access": [
+        {
+          "read-access": ["*"],
+          "write-access": ["x"]
+        }
+      ],
+      "map_access": [],
+      "allowed_helpers": ["*"]
+    },
+    "enforce_final_policy": {
+      "dependency": ["check_http_port"],
+      "dependency_logic": "AND",
+      "map_access": [],
+      "allowed_helpers": ["bpf_map_lookup_elem", "bpf_map_update_elem"]
+    }
+  }
+}

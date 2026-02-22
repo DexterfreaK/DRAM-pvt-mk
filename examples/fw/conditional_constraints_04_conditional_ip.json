@@ -10,7 +10,7 @@
         }
       ],
       "map_access": [],
-      "helper": []
+      "allowed_helpers": ["*"]
     },
     "allow_flow_table_rw": {
       "dependency": [],
@@ -21,10 +21,11 @@
           "access": "ReadWrite"
         }
       ],
-      "helper": ["bpf_map_lookup_elem", "bpf_map_update_elem"]
+      "allowed_helpers": ["*"]
     },
     "when_ip_10_0_0_1": {
       "dependency": ["base_packet_read_only"],
+      "dependency_logic": "AND",
       "memory": [
         {
           "conditions": [
@@ -35,7 +36,7 @@
         }
       ],
       "map_access": [],
-      "helper": []
+      "allowed_helpers": ["*"]
     }
   }
 }
