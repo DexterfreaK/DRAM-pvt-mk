@@ -1,0 +1,10 @@
+{
+    "helper_func": [
+        "bpf_map_lookup_elem",
+        "bpf_map_update_elem",
+        "bpf_ktime_get_ns",
+        "bpf_xdp_adjust_head"
+    ],
+    "map_access": [],
+    "packet_constraints": []
+}

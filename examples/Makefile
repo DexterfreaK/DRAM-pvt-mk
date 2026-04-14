@@ -32,6 +32,11 @@ EXTRA_DEPS +=
 # Conditional policy config (override for test files 01-05, e.g. CONDITIONAL_CONFIG=conditional_constraints_01_minimal.json)
 CONDITIONAL_CONFIG ?= conditional_constraints.json
 
+# Optional: prune policy-irrelevant IR before KLEE by setting POLICY_PRUNE_SPEC
+# to a policy JSON (same format KLEE consumes via -config-file). Unset = no-op.
+POLICY_PRUNE_SPEC ?=
+POLICY_PASS_LIB   ?= $(LIFTING_TOOLS_DIR)/llvm_policy_pass/build/libpolicy_pass.so
+
 # BPF-prog kern and userspace shares struct via header file:
 KERN_USER_H ?= $(wildcard common_kern_user.h)
 
@@ -52,6 +57,19 @@ clean-klee:
 	rm -rf $(ROOT_DIR)/klee-*
 	rm -f $(ROOT_DIR)/res-tree-*
 	rm -f $(ROOT_DIR)/neg-tree*
+
+# Optional pre-KLEE pass: prune policy-irrelevant IR using POLICY_PRUNE_SPEC.
+# A no-op when POLICY_PRUNE_SPEC is unset so existing flows are unaffected.
+policy-prune-bc:
+ifeq ($(strip $(POLICY_PRUNE_SPEC)),)
+	@echo "[policy-prune] no POLICY_PRUNE_SPEC, skipping"
+else
+	opt -load $(POLICY_PASS_LIB) -load-pass-plugin=$(POLICY_PASS_LIB) \
+	    -passes=policy-prune,globaldce,dce,simplifycfg \
+	    -policy-spec=$(POLICY_PRUNE_SPEC) \
+	    $(XDP_TARGETS).bc -o $(XDP_TARGETS).bc
+	llvm-dis -show-annotations $(XDP_TARGETS).bc
+endif
 
 clean: clean-klee
 	@#rm -rf $(LIBBPF_DIR)/build
@@ -228,10 +246,11 @@ verify-map-policy: $(XDP_C) Makefile $(KERN_USER_H) $(EXTRA_DEPS)
 		-fno-builtin \
 		-O0 -emit-llvm -c -g $(XDP_C)
 	llvm-dis -show-annotations $(XDP_TARGETS).bc
-	taskset -c 6 /usr/bin/time -v \
+	$(MAKE) policy-prune-bc
+	/usr/bin/time -v \
 		klee -kdalloc -kdalloc-heap-start-address=0x00040000000 -kdalloc-heap-size=1 -libc=uclibc --external-calls=all --disable-verify \
 		-solver-backend=z3 --exit-on-error -max-memory=750000 -search=dfs -single-object-resolution=true \
-		-verification=true -map-access-control-file=$(MAP_CONFIG_PATH) $(XDP_TARGETS).bc
+		-verification=true --enable-map-access-control -config-file=$(MAP_CONFIG_PATH) $(XDP_TARGETS).bc
 
 verify-object-code: $(OBJECT_FILE_PATH)
 	$(LIFTING_TOOLS_DIR)/generateIR.py $(OBJECT_FILE_PATH) $(MAIN_FUNC_NAME) $(PROGRAM_CONFIG)
@@ -292,6 +311,7 @@ verify-packet-policy: $(XDP_C) Makefile $(KERN_USER_H) $(EXTRA_DEPS)
 		-fno-builtin \
 		-O0 -emit-llvm -c -g $(XDP_C)
 	llvm-dis -show-annotations $(XDP_TARGETS).bc
+	$(MAKE) policy-prune-bc
 	taskset -c 6 /usr/bin/time -v klee -kdalloc -kdalloc-heap-start-address=0x00040000000 -kdalloc-heap-size=1 -libc=uclibc --external-calls=all --disable-verify \
 		-solver-backend=z3 --exit-on-error -max-memory=750000 -search=dfs -single-object-resolution=true \
 		-verification=true -enable-packet-constr=true -packet-constraint-file="$(PWD)/packetAccess" $(XDP_TARGETS).bc
@@ -343,6 +363,7 @@ verify-helperFunc-access: $(XDP_C) Makefile $(KERN_USER_H) $(EXTRA_DEPS)
 		-O0 -emit-llvm -c -g $(XDP_C)
 	# $(LLC) -march=bpf -filetype=obj -o $@ ${@:.o=.ll}
 	llvm-dis -show-annotations $(XDP_TARGETS).bc
+	$(MAKE) policy-prune-bc
 	taskset -c 6 /usr/bin/time -v klee -kdalloc -kdalloc-heap-start-address=0x00040000000 -kdalloc-heap-size=1 -libc=uclibc --external-calls=all --disable-verify \
 		-solver-backend=z3 -silent-klee-assume=true --exit-on-error -max-memory=750000 -search=dfs -single-object-resolution=true \
 		-verification=true -restrict-helper-function=true -helper-function-restriction-rules="$(PWD)/hFuncAccessList" $(XDP_TARGETS).bc
@@ -368,6 +389,7 @@ verify-constraint-access: $(XDP_C) Makefile $(KERN_USER_H) $(EXTRA_DEPS)
 		-O0 -emit-llvm -c -g $(XDP_C)
 	# $(LLC) -march=bpf -filetype=obj -o $@ ${@:.o=.ll}
 	llvm-dis -show-annotations $(XDP_TARGETS).bc
+	$(MAKE) policy-prune-bc
 	taskset -c 0 /usr/bin/time -v \
 		klee -kdalloc -kdalloc-heap-start-address=0x00040000000 -kdalloc-heap-size=1 -libc=uclibc --external-calls=all --disable-verify \
 		-solver-backend=z3 -silent-klee-assume=true --exit-on-error -max-memory=750000 -search=dfs -single-object-resolution=true \

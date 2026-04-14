@@ -1,10 +1,7 @@
 {
-    "helper_func": [
-        "bpf_map_update_elem"
-    ],
+    "helper_func": [],
     "map_access": [
-        {"name": "tx_port",        "access": "Read"},
-        {"name": "flow_ctx_table", "access": "ReadWrite"}
+        {"name": "read_write", "access": "ReadWrite"}
     ],
     "packet_constraints": [
         {

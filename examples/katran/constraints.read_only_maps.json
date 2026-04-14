@@ -1,0 +1,38 @@
+{
+    "helper_func": [
+        "testing1",
+        "testing_dhdhd"
+    ],
+    "map_access": [
+        {
+            "name": "ch_rings",
+            "access": "Read"
+        },
+        {
+            "name": "reals",
+            "access": "Read"
+        },
+        {
+            "name": "quic_mapping",
+            "access": "Read"
+        },
+        {
+            "name": "ctl_array",
+            "access": "Read"
+        }
+    ],
+    "packet_constraints": [
+        {
+            "sPort": "*",
+            "dPort": "*",
+            "sIP": "*",
+            "dIP": "*",
+            "read-access": [
+                "0-146"
+            ],
+            "write-access": [
+                "0-146"
+            ]
+        }
+    ]
+}

@@ -1,5 +1,6 @@
 {
     "helper_func": [
+        "bpf_map_lookup_elem",
         "bpf_map_update_elem"
     ],
     "map_access": [

@@ -343,3 +343,26 @@ print(f"[Step 7] Linking IRs")
 final_ir_path = os.path.join(os.path.dirname(object_file),"final_linked_ir.bc")
 run_cmd(["llvm-link", gen_cpp_path, lifted_ir_file, "-o", final_ir_path], "Link IRs")
 print(f"Output: {final_ir_path}")
+
+##### Step-8 (optional) policy-prune pass on final linked IR
+policy_spec = os.getenv("POLICY_PRUNE_SPEC")
+if policy_spec and os.path.exists(policy_spec):
+    print(f"[Step 8] Applying policy-prune pass (spec={policy_spec})")
+    krakenguard_home = os.getenv("KRAKENGUARD_HOME")
+    if krakenguard_home:
+        default_policy_pass = f"{krakenguard_home}/lib/libpolicy_pass.so"
+    else:
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        default_policy_pass = f"{script_dir}/llvm_policy_pass/build/libpolicy_pass.so"
+    policy_pass_lib = os.getenv("POLICY_PASS_LIB", default_policy_pass)
+    if os.path.exists(policy_pass_lib):
+        run_cmd([
+            "opt",
+            "-load", policy_pass_lib,
+            f"-load-pass-plugin={policy_pass_lib}",
+            "-passes=policy-prune,globaldce,dce,simplifycfg",
+            f"-policy-spec={policy_spec}",
+            final_ir_path, "-o", final_ir_path
+        ], "Apply policy-prune pass")
+    else:
+        print(f"[policy-prune] lib missing at {policy_pass_lib}, skipping")

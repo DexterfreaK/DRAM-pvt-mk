@@ -1,0 +1,16 @@
+{
+    "helper_func": [],
+    "map_access": [
+        {"name": "read_write", "access": "ReadWrite"}
+    ],
+    "packet_constraints": [
+        {
+            "sPort": "*",
+            "dPort": "*",
+            "sIP": "*",
+            "dIP": "*",
+            "read-access":  ["0-33"],
+            "write-access": ["16-17"]
+        }
+    ]
+}
