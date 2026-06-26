@@ -1,0 +1,11 @@
+{
+    "helper_func": ["bpf_map_update_elem", "bpf_perf_event_output"],
+    "map_access": [],
+    "packet_constraints": [
+        {
+            "sPort": "*", "dPort": "*", "sIP": "*", "dIP": "*",
+            "read-access":  ["0-256"],
+            "write-access": []
+        }
+    ]
+}

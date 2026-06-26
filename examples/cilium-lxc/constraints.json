@@ -1,0 +1,20 @@
+{
+    "helper_func": [
+        "bpf_map_lookup_elem",
+        "bpf_ktime_get_ns",
+        "bpf_trace_printk",
+        "bpf_skb_load_bytes",
+        "bpf_skb_load_bytes_relative"
+    ],
+    "map_access": [],
+    "packet_constraints": [
+        {
+            "sPort": "*",
+            "dPort": "*",
+            "sIP":   "*",
+            "dIP":   "*",
+            "read-access":  ["0-1500"],
+            "write-access": []
+        }
+    ]
+}

@@ -1,0 +1,52 @@
+{
+  "module": "fnv_hash.opt.bc",
+  "tool":   { "name": "clam", "version": "dev13", "domain": "soct" },
+
+  "functions": [
+    {
+      "name": "fnv_hash",
+
+      "side_effects": {
+        "calls_helpers":              [],
+        "writes_maps":                [],
+        "writes_memory_outof_region": ["out_hash"],
+        "indirect_calls":             false
+      },
+
+      "regions": [
+        {
+          "region_id": "fnv_hash::for.cond",
+          "kind":      "loop_header",
+          "decision":  "augment",
+          "rationale": "Bounded loop; emit only widened bounds at header.",
+          "invariants": [
+            { "expr": "key_len.0 <= 250",   "kind": "upper_bound", "rank": 1.0 },
+            { "expr": "off.0     <= 250",   "kind": "upper_bound", "rank": 1.0 },
+            { "expr": "key_len.0 == off.0", "kind": "equality",    "rank": 0.8 }
+          ]
+        },
+        {
+          "region_id": "fnv_hash::for.body",
+          "kind":      "basic_block",
+          "decision":  "ignore",
+          "rationale": "Local SSA facts; KLEE derives them for free."
+        },
+        {
+          "region_id": "fnv_hash::for.inc",
+          "kind":      "loop_body",
+          "decision":  "ignore",
+          "rationale": "Loop body; widening already captured at header."
+        },
+        {
+          "region_id": "fnv_hash::for.end",
+          "kind":      "basic_block",
+          "decision":  "augment",
+          "rationale": "Post-condition discharges klee_assert(key_len <= 251).",
+          "invariants": [
+            { "expr": "key_len.0 <= 251", "kind": "upper_bound", "rank": 1.0 }
+          ]
+        }
+      ]
+    }
+  ]
+}

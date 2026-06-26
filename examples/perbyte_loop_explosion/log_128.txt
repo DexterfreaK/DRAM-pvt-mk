@@ -1,0 +1,54 @@
+KLEE: WARNING: Module and host target triples do not match: 'bpf' != 'x86_64-pc-linux-gnu'
+This may cause unexpected crashes or assertion violations.
+KLEE: NOTE: Using klee-uclibc : /root/DRACO-pvt/klee/build/runtime/lib/klee-uclibc.bca
+KLEE: output directory is "/root/DRACO-pvt/examples/perbyte_loop_explosion/klee-out-128"
+KLEE: Using Z3 solver backend
+KLEE: Deterministic allocator: Using quarantine queue size 8
+KLEE: Deterministic allocator: globals (start-address=0x75d074200000 size=10 GiB)
+KLEE: Deterministic allocator: constants (start-address=0x75cdf4200000 size=10 GiB)
+KLEE: Deterministic allocator: heap (start-address=0x40000000 size=1 GiB)
+KLEE: Deterministic allocator: stack (start-address=0x75adf4200000 size=128 GiB)
+warning: Linking two modules of different data layouts: 'main_128.bc' is 'e-m:e-p:64:64-i64:64-i128:128-n32:64-S128' whereas '__uClibc_main.os' is 'e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128'
+
+warning: Linking two modules of different target triples: 'main_128.bc' is 'bpf' whereas '__uClibc_main.os' is 'x86_64-pc-linux-gnu'
+
+KLEE: WARNING: undefined reference to function: __syscall_rt_sigaction
+KLEE: WARNING: undefined reference to function: _stdio_init
+KLEE: WARNING: undefined reference to function: fcntl
+KLEE: WARNING: undefined reference to function: fstat
+KLEE: WARNING: undefined reference to function: mmap
+KLEE: WARNING: undefined reference to function: open
+KLEE: WARNING: undefined reference to function: kill (UNSAFE)!
+KLEE: WARNING ONCE: calling __user_main with extra arguments.
+KLEE: WARNING ONCE: Alignment of memory from call "malloc" is not modelled. Using alignment of 8.
+KLEE: HaltTimer invoked
+KLEE: halting execution, dumping remaining states
+
+KLEE: done: total instructions = 9263
+KLEE: done: completed paths = 0
+KLEE: done: partially completed paths = 254
+KLEE: done: generated tests = 254
+Elapsed time in milliseconds: 1483290
+	Command being timed: "/root/DRACO-pvt/klee/build/bin/klee -kdalloc -kdalloc-heap-start-address=0x00040000000 -kdalloc-heap-size=1 -libc=uclibc --external-calls=all --disable-verify -solver-backend=z3 -max-memory=750000 -search=dfs -max-time=300s -output-dir=klee-out-128 main_128.bc"
+	User time (seconds): 1482.78
+	System time (seconds): 0.41
+	Percent of CPU this job got: 99%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 24:43.47
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 971096
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 843
+	Minor (reclaiming a frame) page faults: 232995
+	Voluntary context switches: 642
+	Involuntary context switches: 10108
+	Swaps: 0
+	File system inputs: 163112
+	File system outputs: 11640
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

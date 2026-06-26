@@ -1,0 +1,8 @@
+{
+  "irrelevant_packet_items": [
+    "sIP",
+    "dIP",
+    "sPort",
+    "dPort"
+  ]
+}

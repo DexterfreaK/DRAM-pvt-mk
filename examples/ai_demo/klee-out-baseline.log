@@ -1,0 +1,14 @@
+KLEE: output directory is "/root/DRACO-pvt/examples/ai_demo/klee-out-baseline"
+KLEE: Using Z3 solver backend
+KLEE: Deterministic allocator: Using quarantine queue size 8
+KLEE: Deterministic allocator: globals (start-address=0x710efcc00000 size=10 GiB)
+KLEE: Deterministic allocator: constants (start-address=0x710c7cc00000 size=10 GiB)
+KLEE: Deterministic allocator: heap (start-address=0x700c7cc00000 size=1024 GiB)
+KLEE: Deterministic allocator: stack (start-address=0x6fec7cc00000 size=128 GiB)
+
+KLEE: done: total instructions = 11091
+KLEE: done: completed paths = 503
+KLEE: done: partially completed paths = 0
+KLEE: done: generated tests = 503
+Elapsed time in milliseconds: 39239
+wall=39.25s rss=106592KB

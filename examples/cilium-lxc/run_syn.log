@@ -1,0 +1,32 @@
+Loaded Config JSON file
+KLEE: NOTE: Using klee-uclibc : /root/DRACO-pvt/klee/build/runtime/lib/klee-uclibc.bca
+Rule: 0|0|0|0
+Read-only: 0-256 
+Write-only: 
+KLEE: output directory is "/root/DRACO-pvt/examples/cilium-lxc/klee-out-0"
+KLEE: Using Z3 solver backend
+KLEE: Deterministic allocator: Using quarantine queue size 8
+KLEE: Deterministic allocator: globals (start-address=0x751457600000 size=10 GiB)
+KLEE: Deterministic allocator: constants (start-address=0x7511d7600000 size=10 GiB)
+KLEE: Deterministic allocator: heap (start-address=0x40000000 size=1 GiB)
+KLEE: Deterministic allocator: stack (start-address=0x74f1d7600000 size=128 GiB)
+KLEE: WARNING: undefined reference to function: __syscall_rt_sigaction
+KLEE: WARNING: undefined reference to function: _stdio_init
+KLEE: WARNING: undefined reference to function: fcntl
+KLEE: WARNING: undefined reference to function: fstat
+KLEE: WARNING: undefined reference to function: open
+KLEE: WARNING: undefined reference to function: kill (UNSAFE)!
+KLEE: WARNING ONCE: calling __user_main with extra arguments.
+KLEE: WARNING ONCE: Alignment of memory from call "malloc" is not modelled. Using alignment of 8.
+KLEE: HaltTimer invoked
+KLEE: halting execution, dumping remaining states
+Restriction on use of helper function : "bpf_map_update_elem"
+Restriction on use of helper function : "bpf_perf_event_output"
+
+KLEE: done: total instructions = 4865706
+KLEE: done: completed paths = 14386
+KLEE: done: partially completed paths = 11
+KLEE: done: generated tests = 14396
+Map Access control : VALID
+Elapsed time in milliseconds: 60186
+wall=60.22s peak_kb=128260

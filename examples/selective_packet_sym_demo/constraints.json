@@ -1,0 +1,14 @@
+{
+    "helper_func": [],
+    "map_access": [],
+    "packet_constraints": [
+        {
+            "sPort": "*",
+            "dPort": "*",
+            "sIP": "12345",
+            "dIP": "*",
+            "read-access": ["0-1500"],
+            "write-access": ["0-1500"]
+        }
+    ]
+}

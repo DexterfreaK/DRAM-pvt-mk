@@ -1,0 +1,27 @@
+{
+    "helper_func": [
+        "testing1",
+        "testing_dhdhd"
+    ],
+    "map_access": [
+        {"name": "ch_rings",       "access": "Read"},
+        {"name": "reals",          "access": "Read"},
+        {"name": "quic_mapping",   "access": "Read"},
+        {"name": "ctl_array",      "access": "Read"},
+        {"name": "vip_map",        "access": "ReadWrite"},
+        {"name": "stats",          "access": "ReadWrite"},
+        {"name": "reals_stats",    "access": "ReadWrite"},
+        {"name": "fallback_cache", "access": "ReadWrite"},
+        {"name": "lru_mapping",    "access": "ReadWrite"}
+    ],
+    "packet_constraints": [
+        {
+            "sPort": "*",
+            "dPort": "*",
+            "sIP": "12345",
+            "dIP": "*",
+            "read-access":  ["0-1500"],
+            "write-access": ["0-1500"]
+        }
+    ]
+}

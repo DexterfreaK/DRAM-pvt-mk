@@ -1,0 +1,70 @@
+key_len.0:int32 declare fnv_hash(@V_3:int32)
+entry:
+/** INVARIANTS: {} **/
+  len = @V_3;
+  hash.0 = -2128831035;
+  key_len.0 = 0;
+  off.0 = 0;
+/** INVARIANTS: ({}, {key_len.0 -> t2[_x1], len -> t0[_x2], @V_3 -> t0[_x2], hash.0 -> t1[_x0], off.0 -> t2[_x1]}{_x0 -> [-2128831035, -2128831035]; _x1 -> [0, 0]}) **/
+  goto for.cond;
+for.cond:
+/** INVARIANTS: ({}, {key_len.0 -> t0[_z2], len -> t1[_z0], @V_3 -> t1[_z0], hash.0 -> t2[_z1], off.0 -> t0[_z2]}{_z2 -> [0, 251]}) **/
+  cmp = (off.0 <=_u 250);
+  add = off.0+1;
+  cmp1 = (-len+add <=_u 0);
+  @V_10 = false;
+  _0 = ite(cmp,cmp1,@V_10);
+/** INVARIANTS: ({@V_10 -> false}, {key_len.0 -> t0[_z2], len -> t1[_z0], @V_3 -> t1[_z0], hash.0 -> t2[_z1], off.0 -> t0[_z2], add -> t4[_z4]}{_z2 -> [0, 251]; _z3 -> [1, 1]; _z4 -> [1, 252]}) **/
+  goto __@bb_8,__@bb_9;
+__@bb_8:
+  assume(_0);
+  goto for.body;
+for.body:
+/** INVARIANTS: ({cmp -> true; cmp1 -> true; _0 -> true; @V_10 -> false}, {key_len.0 -> t0[_z2], len -> t1[_z0], @V_3 -> t1[_z0], hash.0 -> t2[_z1], off.0 -> t0[_z2], add -> t4[_z4]}{_z0 -> [1, +oo]; _z2 -> [0, 250]; _z3 -> [1, 1]; _z4 -> [1, 251]}) **/
+  zext off.0:32 to idxprom:64;
+  havoc(_1) /*   %_1 = load i8, i8* %arrayidx, align 1, !dbg !37*/;
+/** INVARIANTS: ({cmp -> true; cmp1 -> true; _0 -> true; @V_10 -> false}, {key_len.0 -> t0[_z2], len -> t1[_z0], @V_3 -> t1[_z0], hash.0 -> t2[_z1], off.0 -> t0[_z2], add -> t4[_z4], idxprom -> t0[_z2]}{_z0 -> [1, +oo]; _z2 -> [0, 250]; _z3 -> [1, 1]; _z4 -> [1, 251]}) **/
+  goto __@bb_10,__@bb_11;
+__@bb_10:
+  assume(_1 <= 31);
+  goto LeafBlock;
+LeafBlock:
+/** INVARIANTS: ({cmp -> true; cmp1 -> true; _0 -> true; @V_10 -> false}, {key_len.0 -> t0[_z2], len -> t1[_z0], @V_3 -> t1[_z0], hash.0 -> t2[_z1], off.0 -> t0[_z2], add -> t4[_z4], idxprom -> t0[_z2], _1 -> t5[_z5]}{_z0 -> [1, +oo]; _z2 -> [0, 250]; _z3 -> [1, 1]; _z4 -> [1, 251]; _z5 -> [-oo, 31]}) **/
+  goto __@bb_14,__@bb_15;
+__@bb_14:
+  assume(_1 = 13);
+  goto for.end;
+for.end:
+/** INVARIANTS: ({@V_10 -> false}, {key_len.0 -> t0[_y0], len -> t1[_y1], @V_3 -> t1[_y1], hash.0 -> t2[_y2], off.0 -> t0[_y0], add -> t4[_y4]}{_y0 -> [0, 251]; _y3 -> [1, 1]; _y4 -> [1, 252]}) **/
+
+__@bb_15:
+  assume(_1 != 13);
+  goto for.inc;
+for.inc:
+/** INVARIANTS: ({cmp -> true; cmp1 -> true; _0 -> true; @V_10 -> false}, {key_len.0 -> t0[_x0], len -> t1[_x1], @V_3 -> t1[_x1], hash.0 -> t2[_x2], off.0 -> t0[_x0], add -> t4[_x4], idxprom -> t0[_x0], _1 -> t5[_x5]}{_x0 -> [0, 250]; _x1 -> [1, +oo]; _x3 -> [1, 1]; _x4 -> [1, 251]; _x5 -> [-oo, 12] | [14, 31] | [33, +oo]}) **/
+  inc = key_len.0+1;
+  zext _1:8 to conv9:32;
+  xor = hash.0^conv9;
+  mul = xor*16777619;
+  inc10 = off.0+1;
+  hash.0 = mul;
+  key_len.0 = inc;
+  off.0 = inc10;
+/** INVARIANTS: ({cmp -> true; cmp1 -> true; _0 -> true; @V_10 -> false}, {key_len.0 -> t4[_x4], len -> t1[_x1], @V_3 -> t1[_x1], hash.0 -> t8[_x8], off.0 -> t4[_x4], add -> t4[_x4], idxprom -> t0[_x0], _1 -> t5[_x5], inc -> t4[_x4], conv9 -> t5[_x5], xor -> t6[_x6], mul -> t8[_x8], inc10 -> t4[_x4]}{_x0 -> [0, 250]; _x1 -> [1, +oo]; _x3 -> [1, 1]; _x4 -> [1, 251]; _x5 -> [-oo, 12] | [14, 31] | [33, 255]; _x7 -> [16777619, 16777619]}) **/
+  goto for.cond;
+__@bb_11:
+  assume(-_1 <= -32);
+  goto LeafBlock1;
+LeafBlock1:
+/** INVARIANTS: ({cmp -> true; cmp1 -> true; _0 -> true; @V_10 -> false}, {key_len.0 -> t0[_z2], len -> t1[_z0], @V_3 -> t1[_z0], hash.0 -> t2[_z1], off.0 -> t0[_z2], add -> t4[_z4], idxprom -> t0[_z2], _1 -> t5[_z5]}{_z0 -> [1, +oo]; _z2 -> [0, 250]; _z3 -> [1, 1]; _z4 -> [1, 251]; _z5 -> [32, +oo]}) **/
+  goto __@bb_12,__@bb_13;
+__@bb_12:
+  assume(_1 = 32);
+  goto for.end;
+__@bb_13:
+  assume(_1 != 32);
+  goto for.inc;
+__@bb_9:
+  assume(not(_0));
+  goto for.end;
+

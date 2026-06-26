@@ -1,0 +1,70 @@
+key_len.0:int32 declare fnv_hash(@V_3:int32)
+entry:
+/** INVARIANTS: {} **/
+  len = @V_3;
+  hash.0 = -2128831035;
+  key_len.0 = 0;
+  off.0 = 0;
+/** INVARIANTS: ({}, {hash.0 = -2128831035; key_len.0 = 0; off.0 = 0; len-@V_3 = 0}) **/
+  goto for.cond;
+for.cond:
+/** INVARIANTS: ({}, {key_len.0-off.0 = 0; len-@V_3 = 0; -key_len.0 <= 0; key_len.0 <= 251; -off.0 <= 0; off.0 <= 251}) **/
+  cmp = (off.0 <=_u 250);
+  add = off.0+1;
+  cmp1 = (-len+add <=_u 0);
+  @V_10 = false;
+  _0 = ite(cmp,cmp1,@V_10);
+/** INVARIANTS: ({@V_10 -> false}, {key_len.0-off.0 = 0; key_len.0-add = -1; len-@V_3 = 0; -off.0+add = 1; -key_len.0 <= 0; key_len.0 <= 251; -add <= -1; add <= 252; -off.0 <= 0; off.0 <= 251}) **/
+  goto __@bb_8,__@bb_9;
+__@bb_8:
+  assume(_0);
+  goto for.body;
+for.body:
+/** INVARIANTS: ({cmp -> true; cmp1 -> true; _0 -> true; @V_10 -> false}, {key_len.0-off.0 = 0; key_len.0-add = -1; len-@V_3 = 0; -off.0+add = 1; -key_len.0 <= 0; key_len.0 <= 250; -len <= -1; -@V_3 <= -1; -add <= -1; add <= 251; -off.0 <= 0; off.0 <= 250; key_len.0-len <= -1; key_len.0-@V_3 <= -1; -len+add <= 0; -len+off.0 <= -1; -@V_3+add <= 0; -@V_3+off.0 <= -1}) **/
+  zext off.0:32 to idxprom:64;
+  havoc(_1) /*   %_1 = load i8, i8* %arrayidx, align 1, !dbg !37*/;
+/** INVARIANTS: ({cmp -> true; cmp1 -> true; _0 -> true; @V_10 -> false}, {key_len.0-off.0 = 0; key_len.0-add = -1; key_len.0-idxprom = 0; len-@V_3 = 0; -off.0+add = 1; add-idxprom = 1; off.0-idxprom = 0; -key_len.0 <= 0; key_len.0 <= 250; -len <= -1; -@V_3 <= -1; -add <= -1; add <= 251; -off.0 <= 0; off.0 <= 250; -idxprom <= 0; idxprom <= 250; key_len.0-len <= -1; key_len.0-@V_3 <= -1; -len+add <= 0; -len+off.0 <= -1; -len+idxprom <= -1; -@V_3+add <= 0; -@V_3+off.0 <= -1; -@V_3+idxprom <= -1}) **/
+  goto __@bb_10,__@bb_11;
+__@bb_10:
+  assume(_1 <= 31);
+  goto LeafBlock;
+LeafBlock:
+/** INVARIANTS: ({cmp -> true; cmp1 -> true; _0 -> true; @V_10 -> false}, {key_len.0-off.0 = 0; key_len.0-add = -1; key_len.0-idxprom = 0; len-@V_3 = 0; -off.0+add = 1; add-idxprom = 1; off.0-idxprom = 0; -key_len.0 <= 0; key_len.0 <= 250; -len <= -1; -@V_3 <= -1; -add <= -1; add <= 251; -off.0 <= 0; off.0 <= 250; -idxprom <= 0; idxprom <= 250; _1 <= 31; key_len.0-len <= -1; key_len.0-@V_3 <= -1; -len+add <= 0; -len+off.0 <= -1; -len+idxprom <= -1; -@V_3+add <= 0; -@V_3+off.0 <= -1; -@V_3+idxprom <= -1}) **/
+  goto __@bb_14,__@bb_15;
+__@bb_14:
+  assume(_1 = 13);
+  goto for.end;
+for.end:
+/** INVARIANTS: ({@V_10 -> false}, {key_len.0-off.0 = 0; key_len.0-add = -1; len-@V_3 = 0; off.0-add = -1; -key_len.0 <= 0; key_len.0 <= 251; -off.0 <= 0; off.0 <= 251; -add <= -1; add <= 252}) **/
+
+__@bb_15:
+  assume(_1 != 13);
+  goto for.inc;
+for.inc:
+/** INVARIANTS: ({cmp -> true; cmp1 -> true; _0 -> true; @V_10 -> false}, {key_len.0-off.0 = 0; key_len.0-add = -1; key_len.0-idxprom = 0; len-@V_3 = 0; off.0-add = -1; off.0-idxprom = 0; add-idxprom = 1; -key_len.0 <= 0; key_len.0 <= 250; -len <= -1; -@V_3 <= -1; -off.0 <= 0; off.0 <= 250; -add <= -1; add <= 251; -idxprom <= 0; idxprom <= 250; key_len.0-len <= -1; key_len.0-@V_3 <= -1; -len+add <= 0; -len+off.0 <= -1; -len+idxprom <= -1; -@V_3+add <= 0; -@V_3+off.0 <= -1; -@V_3+idxprom <= -1}) **/
+  inc = key_len.0+1;
+  zext _1:8 to conv9:32;
+  xor = hash.0^conv9;
+  mul = xor*16777619;
+  inc10 = off.0+1;
+  hash.0 = mul;
+  key_len.0 = inc;
+  off.0 = inc10;
+/** INVARIANTS: ({cmp -> true; cmp1 -> true; _0 -> true; @V_10 -> false}, {off.0-inc10 = 0; -key_len.0+off.0 = 0; off.0-add = 0; off.0-idxprom = 1; off.0-inc = 0; len-@V_3 = 0; -key_len.0+add = 0; add-idxprom = 1; add-inc = 0; add-inc10 = 0; -key_len.0+idxprom = -1; idxprom-inc = -1; idxprom-inc10 = -1; -key_len.0+inc = 0; inc-inc10 = 0; -_1+conv9 = 0; -key_len.0+inc10 = 0; hash.0-mul = 0; -off.0 <= -1; off.0 <= 251; -len <= -1; -@V_3 <= -1; -add <= -1; add <= 251; -idxprom <= 0; idxprom <= 250; -inc <= -1; inc <= 251; conv9 <= 255; _1 <= 255; -inc10 <= -1; inc10 <= 251; -key_len.0 <= -1; key_len.0 <= 251; -len+off.0 <= 0; -@V_3+off.0 <= 0; -len+add <= 0; key_len.0-len <= 0; -len+idxprom <= -1; -len+inc <= 0; -len+inc10 <= 0; -@V_3+add <= 0; key_len.0-@V_3 <= 0; -@V_3+idxprom <= -1; -@V_3+inc <= 0; -@V_3+inc10 <= 0}) **/
+  goto for.cond;
+__@bb_11:
+  assume(-_1 <= -32);
+  goto LeafBlock1;
+LeafBlock1:
+/** INVARIANTS: ({cmp -> true; cmp1 -> true; _0 -> true; @V_10 -> false}, {key_len.0-off.0 = 0; key_len.0-add = -1; key_len.0-idxprom = 0; len-@V_3 = 0; -off.0+add = 1; add-idxprom = 1; off.0-idxprom = 0; -key_len.0 <= 0; key_len.0 <= 250; -len <= -1; -@V_3 <= -1; -add <= -1; add <= 251; -off.0 <= 0; off.0 <= 250; -idxprom <= 0; idxprom <= 250; -_1 <= -32; key_len.0-len <= -1; key_len.0-@V_3 <= -1; -len+add <= 0; -len+off.0 <= -1; -len+idxprom <= -1; -@V_3+add <= 0; -@V_3+off.0 <= -1; -@V_3+idxprom <= -1}) **/
+  goto __@bb_12,__@bb_13;
+__@bb_12:
+  assume(_1 = 32);
+  goto for.end;
+__@bb_13:
+  assume(_1 != 32);
+  goto for.inc;
+__@bb_9:
+  assume(not(_0));
+  goto for.end;
+

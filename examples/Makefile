@@ -37,6 +37,12 @@ CONDITIONAL_CONFIG ?= conditional_constraints.json
 POLICY_PRUNE_SPEC ?=
 POLICY_PASS_LIB   ?= $(LIFTING_TOOLS_DIR)/llvm_policy_pass/build/libpolicy_pass.so
 
+# Optional: rewrite whole-packet symbolicization to keep selected packet
+# fields concrete based on the main policy plus a separate irrelevance spec.
+SELECTIVE_PACKET_POLICY_SPEC ?=
+SELECTIVE_PACKET_IRRELEVANCE_SPEC ?=
+SELECTIVE_PACKET_PASS_LIB ?= $(LIFTING_TOOLS_DIR)/llvm_selective_packet_sym/build/libselective_packet_sym.so
+
 # BPF-prog kern and userspace shares struct via header file:
 KERN_USER_H ?= $(wildcard common_kern_user.h)
 
@@ -67,6 +73,20 @@ else
 	opt -load $(POLICY_PASS_LIB) -load-pass-plugin=$(POLICY_PASS_LIB) \
 	    -passes=policy-prune,globaldce,dce,simplifycfg \
 	    -policy-spec=$(POLICY_PRUNE_SPEC) \
+	    $(XDP_TARGETS).bc -o $(XDP_TARGETS).bc
+	llvm-dis -show-annotations $(XDP_TARGETS).bc
+endif
+
+packet-sym-bc:
+ifeq ($(strip $(SELECTIVE_PACKET_POLICY_SPEC)),)
+	@echo "[selective-packet-sym] no SELECTIVE_PACKET_POLICY_SPEC, skipping"
+else ifeq ($(strip $(SELECTIVE_PACKET_IRRELEVANCE_SPEC)),)
+	@echo "[selective-packet-sym] no SELECTIVE_PACKET_IRRELEVANCE_SPEC, skipping"
+else
+	opt -load $(SELECTIVE_PACKET_PASS_LIB) -load-pass-plugin=$(SELECTIVE_PACKET_PASS_LIB) \
+	    -passes=selective-packet-sym \
+	    -packet-policy-spec=$(SELECTIVE_PACKET_POLICY_SPEC) \
+	    -packet-irrelevance-spec=$(SELECTIVE_PACKET_IRRELEVANCE_SPEC) \
 	    $(XDP_TARGETS).bc -o $(XDP_TARGETS).bc
 	llvm-dis -show-annotations $(XDP_TARGETS).bc
 endif

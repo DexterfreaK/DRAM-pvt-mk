@@ -1,0 +1,33 @@
+{
+  "input_ll": "fnv_hash.opt.ll",
+  "clam_text": "clam_soct.txt",
+  "functions": [
+    {
+      "name": "fnv_hash",
+      "loops": [
+        {
+          "header": "for.cond",
+          "body": [
+            "for.body",
+            "for.cond",
+            "for.inc"
+          ],
+          "ai_score": 0.721,
+          "ai_breakdown": {
+            "bounded": 2,
+            "partial": 0,
+            "top": 1,
+            "ops_friendly": 11,
+            "ops_hostile": 2
+          },
+          "klee_risk": "HIGH",
+          "klee_risk_detail": "break-on-cond loop (exits=3); paths\u2248tc*exits=753 (log2=9.6)",
+          "branch_factor": 2,
+          "trip_count_upper": 251,
+          "decision": "summarize",
+          "rationale": "AI precise + KLEE would explode."
+        }
+      ]
+    }
+  ]
+}

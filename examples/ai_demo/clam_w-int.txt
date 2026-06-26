@@ -1,0 +1,70 @@
+key_len.0:int32 declare fnv_hash(@V_3:int32)
+entry:
+/** INVARIANTS: {} **/
+  len = @V_3;
+  hash.0 = -2128831035;
+  key_len.0 = 0;
+  off.0 = 0;
+/** INVARIANTS: ({}, {key_len.0 -> [[0, 0]]_32; hash.0 -> [[-2128831035, -2128831035]]_32; off.0 -> [[0, 0]]_32}) **/
+  goto for.cond;
+for.cond:
+/** INVARIANTS: ({}, {off.0 -> [[0, 251]]_32}) **/
+  cmp = (off.0 <=_u 250);
+  add = off.0+1;
+  cmp1 = (-len+add <=_u 0);
+  @V_10 = false;
+  _0 = ite(cmp,cmp1,@V_10);
+/** INVARIANTS: ({@V_10 -> false}, {off.0 -> [[0, 251]]_32; add -> [[1, 252]]_32}) **/
+  goto __@bb_8,__@bb_9;
+__@bb_8:
+  assume(_0);
+  goto for.body;
+for.body:
+/** INVARIANTS: ({cmp -> true; cmp1 -> true; _0 -> true; @V_10 -> false}, {len -> [[1, -1]]_32; off.0 -> [[0, 250]]_32; add -> [[1, 252]]_32}) **/
+  zext off.0:32 to idxprom:64;
+  havoc(_1) /*   %_1 = load i8, i8* %arrayidx, align 1, !dbg !37*/;
+/** INVARIANTS: ({cmp -> true; cmp1 -> true; _0 -> true; @V_10 -> false}, {len -> [[1, -1]]_32; off.0 -> [[0, 250]]_32; add -> [[1, 252]]_32; idxprom -> [[0, 250]]_64}) **/
+  goto __@bb_10,__@bb_11;
+__@bb_10:
+  assume(_1 <= 31);
+  goto LeafBlock;
+LeafBlock:
+/** INVARIANTS: ({cmp -> true; cmp1 -> true; _0 -> true; @V_10 -> false}, {len -> [[1, -1]]_32; off.0 -> [[0, 250]]_32; add -> [[1, 252]]_32; idxprom -> [[0, 250]]_64; _1 -> [[-128, 31]]_8}) **/
+  goto __@bb_14,__@bb_15;
+__@bb_14:
+  assume(_1 = 13);
+  goto for.end;
+for.end:
+/** INVARIANTS: ({@V_10 -> false}, {off.0 -> [[0, 251]]_32; add -> [[1, 252]]_32}) **/
+
+__@bb_15:
+  assume(_1 != 13);
+  goto for.inc;
+for.inc:
+/** INVARIANTS: ({cmp -> true; cmp1 -> true; _0 -> true; @V_10 -> false}, {len -> [[1, -1]]_32; off.0 -> [[0, 250]]_32; add -> [[1, 252]]_32; idxprom -> [[0, 250]]_64; _1 -> [[33, 31]]_8}) **/
+  inc = key_len.0+1;
+  zext _1:8 to conv9:32;
+  xor = hash.0^conv9;
+  mul = xor*16777619;
+  inc10 = off.0+1;
+  hash.0 = mul;
+  key_len.0 = inc;
+  off.0 = inc10;
+/** INVARIANTS: ({cmp -> true; cmp1 -> true; _0 -> true; @V_10 -> false}, {len -> [[1, -1]]_32; off.0 -> [[1, 251]]_32; add -> [[1, 252]]_32; idxprom -> [[0, 250]]_64; _1 -> [[33, 31]]_8; conv9 -> [[0, 255]]_32; inc10 -> [[1, 251]]_32}) **/
+  goto for.cond;
+__@bb_11:
+  assume(-_1 <= -32);
+  goto LeafBlock1;
+LeafBlock1:
+/** INVARIANTS: ({cmp -> true; cmp1 -> true; _0 -> true; @V_10 -> false}, {len -> [[1, -1]]_32; off.0 -> [[0, 250]]_32; add -> [[1, 252]]_32; idxprom -> [[0, 250]]_64; _1 -> [[32, 127]]_8}) **/
+  goto __@bb_12,__@bb_13;
+__@bb_12:
+  assume(_1 = 32);
+  goto for.end;
+__@bb_13:
+  assume(_1 != 32);
+  goto for.inc;
+__@bb_9:
+  assume(not(_0));
+  goto for.end;
+

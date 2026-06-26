@@ -181,41 +181,7 @@ static inline __u16 compute_ip_checksum(struct iphdr *ip)
     return ~((csum & 0xffff) + (csum >> 16));
 }
 
-static inline int compute_message_type(char *payload, void *data_end)
-{
-    if (payload + PREPARE_TYPE_LEN < data_end &&
-        payload[10] == 'v' && payload[11] == 'r' && payload[19] == 'P' &&
-        payload[20] == 'r' && payload[21] == 'e' && payload[22] == 'p' &&
-        payload[23] == 'a' && payload[24] == 'r' && payload[25] == 'e' && payload[26] == 'M')
-    {
-        // PrepareMessage in `vr`.
-        return FAST_PROG_XDP_HANDLE_PREPARE;
-    }
-    else if (payload + REQUEST_TYPE_LEN < data_end &&
-             payload[10] == 'v' && payload[11] == 'r' && payload[19] == 'R' &&
-             payload[20] == 'e' && payload[21] == 'q' && payload[22] == 'u' &&
-             payload[23] == 'e' && payload[24] == 's' && payload[25] == 't' && payload[26] == 'M')
-    {
-        // Request message in `vr`.
-        return FAST_PROG_XDP_HANDLE_REQUEST;
-    }
-    else if (payload + PREPAREOK_TYPE_LEN < data_end &&
-             payload[10] == 'v' && payload[11] == 'r' && payload[19] == 'P' &&
-             payload[20] == 'r' && payload[21] == 'e' && payload[22] == 'p' &&
-             payload[23] == 'a' && payload[24] == 'r' && payload[25] == 'e' && payload[26] == 'O')
-    {
-        // PrepareOK message in `vr`.
-        return FAST_PROG_XDP_HANDLE_PREPAREOK;
-    }
-    else if (payload + MYPREPAREOK_TYPE_LEN < data_end &&
-             payload[10] == 'v' && payload[11] == 'r' && payload[13] == 'M' &&
-             payload[14] == 'y' && payload[15] == 'P' && payload[16] == 'r')
-    {
-        // MyPrepareOK message in `vr`.
-        return FAST_PROG_XDP_HANDLE_PREPAREOK;
-    }
-    return -1;
-}
+extern int compute_message_type(char *payload, void *data_end);
 
 SEC("xdp")
 int fastPaxos_main(struct xdp_md *ctx)
@@ -251,13 +217,10 @@ int fastPaxos_main(struct xdp_md *ctx)
 
     __u32 zero = 0;
 
+    int msg_type = compute_message_type(payload, data_end);
+
 #ifdef FAST_REPLY
-    if (payload + PREPARE_TYPE_LEN < data_end &&
-        payload[10] == 'v' && payload[11] == 'r' && payload[19] == 'P' &&
-        payload[20] == 'r' && payload[21] == 'e' && payload[22] == 'p' &&
-        payload[23] == 'a' && payload[24] == 'r' && payload[25] == 'e' && payload[26] == 'M')
-    {
-        // PrepareMessage in `vr`.
+    if (msg_type == FAST_PROG_XDP_HANDLE_PREPARE) {
 #ifdef KLEE_VERIFICATION
         map_progs_xdp[FAST_PROG_XDP_HANDLE_PREPARE](ctx);
 #else
@@ -268,35 +231,11 @@ int fastPaxos_main(struct xdp_md *ctx)
 #endif
 
 #ifdef FAST_QUORUM_PRUNE
-    if (payload + PREPAREOK_TYPE_LEN < data_end &&
-        payload[10] == 'v' && payload[11] == 'r' && payload[19] == 'P' &&
-        payload[20] == 'r' && payload[21] == 'e' && payload[22] == 'p' &&
-        payload[23] == 'a' && payload[24] == 'r' && payload[25] == 'e' && payload[26] == 'O')
-    {
-        // PrepareOK message in `vr`.
+    if (msg_type == FAST_PROG_XDP_HANDLE_PREPAREOK) {
         __u64 *context = bpf_map_lookup_elem(&map_msg_lastOp, &zero);
         if (context)
         {
             *context = (void *)payload + typeLen - data;
-            // bpf_xdp_adjust_head(ctx, *context);
-#ifdef KLEE_VERIFICATION
-            map_progs_xdp[FAST_PROG_XDP_HANDLE_PREPAREOK](ctx);
-#else
-            bpf_tail_call(ctx, &map_progs_xdp, FAST_PROG_XDP_HANDLE_PREPAREOK);
-#endif
-        }
-        return XDP_PASS;
-    }
-    if (payload + MYPREPAREOK_TYPE_LEN < data_end &&
-        payload[10] == 'v' && payload[11] == 'r' && payload[13] == 'M' &&
-        payload[14] == 'y' && payload[15] == 'P' && payload[16] == 'r')
-    {
-        // MyPrepareOK message in `vr`.
-        __u64 *context = bpf_map_lookup_elem(&map_msg_lastOp, &zero);
-        if (context)
-        {
-            *context = (void *)payload + typeLen - data;
-            // bpf_xdp_adjust_head(ctx, *context);
 #ifdef KLEE_VERIFICATION
             map_progs_xdp[FAST_PROG_XDP_HANDLE_PREPAREOK](ctx);
 #else

@@ -1,0 +1,1 @@
+{"irrelevant_packet_items": ["tcp_seq","tcp_ack_seq","tcp_flags","tcp_window","tcp_check","tcp_urg_ptr"]}

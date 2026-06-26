@@ -1,0 +1,42 @@
+[selective-packet-sym] concretized fields after 1 whole-packet symbolic calls
+Loaded Config JSON file
+KLEE: KLEE: WATCHDOG: watching 33
+
+KLEE: WARNING: Module and host target triples do not match: 'bpf' != 'x86_64-pc-linux-gnu'
+This may cause unexpected crashes or assertion violations.
+KLEE: NOTE: Using klee-uclibc : /root/DRACO-pvt/klee/build/runtime/lib/klee-uclibc.bca
+Rule: 0|0|12345|0
+Read-only: 0-146 
+Write-only: 0-146 
+KLEE: output directory is "/root/DRACO-pvt/examples/katran/klee-out-0"
+KLEE: Using Z3 solver backend
+KLEE: Deterministic allocator: Using quarantine queue size 8
+KLEE: Deterministic allocator: globals (start-address=0x731916000000 size=10 GiB)
+KLEE: Deterministic allocator: constants (start-address=0x731696000000 size=10 GiB)
+KLEE: Deterministic allocator: heap (start-address=0x40000000 size=1 GiB)
+KLEE: Deterministic allocator: stack (start-address=0x72f696000000 size=128 GiB)
+warning: Linking two modules of different data layouts: 'katran.bc' is 'e-m:e-p:64:64-i64:64-i128:128-n32:64-S128' whereas '__uClibc_main.os' is 'e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128'
+
+warning: Linking two modules of different target triples: 'katran.bc' is 'bpf' whereas '__uClibc_main.os' is 'x86_64-pc-linux-gnu'
+
+KLEE: WARNING: undefined reference to function: __syscall_rt_sigaction
+KLEE: WARNING: undefined reference to function: _stdio_init
+KLEE: WARNING: undefined reference to function: fcntl
+KLEE: WARNING: undefined reference to function: fstat
+KLEE: WARNING: undefined reference to function: mmap
+KLEE: WARNING: undefined reference to function: open
+KLEE: WARNING: undefined reference to function: kill (UNSAFE)!
+KLEE: WARNING ONCE: calling __user_main with extra arguments.
+KLEE: WARNING ONCE: Alignment of memory from call "malloc" is not modelled. Using alignment of 8.
+KLEE: WARNING ONCE: Alignment of memory from call "calloc" is not modelled. Using alignment of 8.
+KLEE: ERROR: ./balancer_kern.h:647: Trying read prohibited packet fields
+KLEE: NOTE: now ignoring this error at this location
+No use of restricted function detected in any execution path
+
+KLEE: done: total instructions = 15000
+KLEE: done: completed paths = 0
+KLEE: done: partially completed paths = 7
+KLEE: done: generated tests = 1
+Map Access control : VALID
+Elapsed time in milliseconds: 352
+Elapsed time in milliseconds: 1002
