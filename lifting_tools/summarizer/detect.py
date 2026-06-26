@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """detect.py — Stage 1: rank LLVM IR functions by KLEE path-explosion risk.
 
-Three explosion axes detected from LLVM IR (obtained via llvm-dis-14):
+Four explosion axes detected from LLVM IR (obtained via llvm-dis-14):
 
-  A: per-byte loop — loop (phi node) + load i8 from pointer + icmp+br per iter
+  A: per-byte loop — loop + load i8 from pointer + icmp+br per iter
      Score = estimated_loop_bound × branch_pairs_in_loop × 2
-     Catches: bmc_hash_keys (FNV byte loop), compute_message_type (byte compare)
+     Catches: bmc_hash_keys (FNV byte loop over 12 bytes → 3^12 paths)
 
   C: nested symbolic lookups — loop + bpf_map_lookup_elem where the result
      feeds back as the key for the next iteration
@@ -16,6 +16,12 @@ Three explosion axes detected from LLVM IR (obtained via llvm-dis-14):
      Loop present + icmp+br inside the body, even without byte loads
      Score = loop_bound × branch_pairs
      Catches: csum_fold_helper (4-iter loop, 1 branch per iter → 2⁴ paths/call)
+
+  E: flat sequential byte classifier — no loop, many byte equality checks
+     load i8 → zext to i32 → icmp eq i32 %val, CONST → br i1, repeated
+     Score = number of (icmp eq, br i1) pairs
+     Catches: compute_message_type (30+ payload byte comparisons, no loop)
+     Note: clang -O0 promotes i8 → i32 before icmp, so pattern is icmp eq i32
 
 is_inline=True is set when the explosion is detected inside a top-level BPF
 entry function (e.g. xdp_main, tc_main, or __stub__-prefixed functions).
@@ -202,6 +208,47 @@ def _detect_axis_d(func_name: str, lines: list[str]) -> Candidate | None:
                      is_inline=_is_entry(func_name), detail=detail)
 
 
+def _detect_axis_e(func_name: str, lines: list[str]) -> Candidate | None:
+    """Axis E: flat sequential byte classifier — no loop, many byte equality checks.
+
+    Pattern (clang -O0 emits this for multi-field header classifiers):
+      load i8, i8* %arrayidx   →  byte from symbolic buffer
+      %conv = zext i8 to i32   →  promotion to i32
+      icmp eq i32 %conv, N     →  equality check against a literal
+      br i1 …                  →  fork: match / no-match
+
+    Each (icmp eq, br i1) pair is one independent fork on a symbolic input.
+    Path count ≈ number of pairs (sequential, not exponential), but 20-40
+    comparisons in a single function is still a significant explosion.
+
+    Distinguishing from Axis A: Axis A requires a loop; Axis E explicitly
+    requires no loop. They cannot fire on the same function.
+    """
+    body = "\n".join(lines)
+
+    # Must not have a loop — Axis A handles loop+byte-load.
+    if _has_loop(body):
+        return None
+
+    has_byte_load = bool(re.search(r'\bload i8\b', body))
+    if not has_byte_load:
+        return None
+
+    # icmp eq on any integer type covers i8, i16, i32 (clang promotes i8→i32)
+    icmp_eq_count = len(re.findall(r'\bicmp eq\b', body))
+    br_i1_count   = len(re.findall(r'\bbr i1\b', body))
+    byte_cmp_pairs = min(icmp_eq_count, br_i1_count)
+
+    if byte_cmp_pairs < 5:
+        return None
+
+    score = byte_cmp_pairs  # one path fork per comparison pair
+    detail = (f"flat byte classifier: no loop, load_i8=yes, "
+              f"icmp_eq={icmp_eq_count}, byte_cmp_pairs={byte_cmp_pairs}")
+    return Candidate(func_name=func_name, axis="E", score=score,
+                     is_inline=_is_entry(func_name), detail=detail)
+
+
 # ── Loop bound estimator ──────────────────────────────────────────────────────
 
 def _has_loop(body: str) -> bool:
@@ -255,10 +302,13 @@ def detect(path: Path, include_inline: bool = False) -> list[Candidate]:
         if func_name.startswith(("llvm.", "klee_", "__klee", "klee__")):
             continue
 
-        # Try axes in priority order (A > C > D to avoid duplicate annotations).
+        # Try axes in priority order (A > C > D > E).
+        # A and E are mutually exclusive by loop check, so order between them
+        # doesn't matter, but keeping A first is cleaner.
         cand = (_detect_axis_a(func_name, lines)
                 or _detect_axis_c(func_name, lines)
-                or _detect_axis_d(func_name, lines))
+                or _detect_axis_d(func_name, lines)
+                or _detect_axis_e(func_name, lines))
         if cand is not None:
             candidates.append(cand)
 
