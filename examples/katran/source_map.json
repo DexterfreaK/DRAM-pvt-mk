@@ -1,0 +1,6 @@
+{
+  "csum_fold_helper": {
+    "source": "csum_fold_helper.c",
+    "defines": []
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "bmc_hash_keys": {
+    "source": "bmc_hash_keys.c",
+    "defines": ["KEY_BYTES=12", "TABLE_SIZE=3250"]
+  },
+  "_klee_flags": "-kdalloc -kdalloc-heap-start-address=0x00040000000 -kdalloc-heap-size=1 -libc=uclibc --external-calls=all --disable-verify -max-memory=750000 -search=dfs"
+}

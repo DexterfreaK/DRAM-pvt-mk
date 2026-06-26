@@ -1,0 +1,6 @@
+{
+  "compute_message_type": {
+    "source": "compute_message_type.c",
+    "defines": []
+  }
+}
