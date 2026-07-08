@@ -27,6 +27,7 @@ Usage examples:
 """
 
 import argparse
+import re
 import sys
 import tempfile
 from pathlib import Path
@@ -60,6 +61,9 @@ def parse_args() -> argparse.Namespace:
                    help="Additional clang flags as a single quoted string.")
     p.add_argument("--no-clam",  action="store_true",
                    help="Skip Stage 2 Clam analysis (no side-effect bounds).")
+    p.add_argument("--preconditions", nargs="*", default=[], metavar="PARAM>=VALUE",
+                   help="Parameter preconditions injected as __builtin_assume "
+                        "(e.g. maxlen>=1).  Enables relational side-effect bounds.")
     p.add_argument("--verbose",  action="store_true")
     return p.parse_args()
 
@@ -90,16 +94,29 @@ def main() -> int:
             print("[summarize] Stage 2: skipped (--no-clam)")
         else:
             print("[summarize] Stage 2: running Clam zones analysis…")
+            # Parse --preconditions "maxlen>=1" → [{"param":"maxlen","op":">=","value":1}]
+            preconditions = []
+            for raw in (args.preconditions or []):
+                pm = re.match(r'(\w+)\s*(>=|<=|>|<|==)\s*(-?\d+)', raw)
+                if pm:
+                    preconditions.append({"param": pm.group(1),
+                                          "op":    pm.group(2),
+                                          "value": int(pm.group(3))})
             effects = ir_analyzer.analyze(
                 source=source,
                 func_name=args.function,
                 extra_cflags=extra,
                 tmpdir=tmpdir,
+                preconditions=preconditions,
             )
             if effects:
                 for fx in effects:
-                    bound_str = (f"[{fx.lower or 0}, {fx.upper}]"
-                                 if fx.upper is not None else "unbounded")
+                    if fx.upper_expr is not None:
+                        bound_str = f"[{fx.lower or 0}, {fx.upper_expr}]  (relational)"
+                    elif fx.upper is not None:
+                        bound_str = f"[{fx.lower or 0}, {fx.upper}]"
+                    else:
+                        bound_str = "unbounded"
                     print(f"  side effect: *{fx.param} ({fx.c_type}) "
                           f"stored_var={fx.stored_var} bound={bound_str}")
             else:

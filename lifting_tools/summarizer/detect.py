@@ -252,16 +252,16 @@ def _detect_axis_e(func_name: str, lines: list[str]) -> Candidate | None:
 # ── Loop bound estimator ──────────────────────────────────────────────────────
 
 def _has_loop(body: str) -> bool:
-    """True when the function body contains a back-edge (loop).
+    """True when the function body contains a loop back-edge.
 
-    Works for both mem2reg IR (phi nodes) and -O0 memory-form IR (no phi nodes)
-    by checking three indicators:
-      1. phi node — present after mem2reg pass
-      2. !llvm.loop metadata — LLVM adds to every loop back-edge regardless of opt
-      3. Block-name patterns — clang emits for.cond / while.cond / loop.header etc.
+    Uses two reliable indicators (NOT phi nodes — phi also appears in ternary
+    expressions and if/else joins, causing false positives):
+
+      1. !llvm.loop metadata — LLVM attaches this to every loop back-edge branch
+         regardless of optimisation level.  Most reliable indicator.
+      2. Block-name patterns — clang emits for.cond / while.cond / loop.header
+         etc. for loops.  Catches cases where metadata was stripped.
     """
-    if re.search(r'\bphi\b', body):
-        return True
     if re.search(r'!llvm\.loop', body):
         return True
     if re.search(

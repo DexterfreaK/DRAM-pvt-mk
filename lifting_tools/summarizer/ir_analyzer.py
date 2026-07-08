@@ -27,11 +27,13 @@ CLAM    = Path("/root/clam/build/bin/clam")
 
 # ── invariant parsing (adapted from examples/ai_demo/triage.py) ──────────────
 
-_INV_LINE    = re.compile(r"/\*\*\s*INVARIANTS:\s*\([^,]*,\s*(\{[^}]*\})\)\s*\*\*/")
-_BLOCK_HDR   = re.compile(r"^([\w\.@]+):\s*$")
-_FUNC_DECL   = re.compile(r"^([\w\.@]+):\w+\s+declare\s+([\w\.@]+)\(")
-_UPPER       = re.compile(r"^\s*([\w\.@]+)\s*<=\s*(-?\d+)\s*$")
-_LOWER       = re.compile(r"^\s*-\s*([\w\.@]+)\s*<=\s*(-?\d+)\s*$")
+_INV_LINE      = re.compile(r"/\*\*\s*INVARIANTS:\s*\([^,]*,\s*(\{[^}]*\})\)\s*\*\*/")
+_BLOCK_HDR     = re.compile(r"^([\w\.@]+):\s*$")
+_FUNC_DECL     = re.compile(r"^([\w\.@]+):\w+\s+declare\s+([\w\.@]+)\(")
+_UPPER         = re.compile(r"^\s*([\w\.@]+)\s*<=\s*(-?\d+)\s*$")
+_LOWER         = re.compile(r"^\s*-\s*([\w\.@]+)\s*<=\s*(-?\d+)\s*$")
+# Relational octagon constraint: -PARAM+VAR <= C  →  VAR ≤ PARAM + C
+_RELATIONAL_UB = re.compile(r"^\s*-([\w\.@]+)\+([\w\.@]+)\s*<=\s*(-?\d+)\s*$")
 
 
 def _parse_clam_invariants(text: str, func_name: str) -> dict[str, dict[str, int]]:
@@ -81,7 +83,7 @@ def _parse_clam_invariants(text: str, func_name: str) -> dict[str, dict[str, int
         chosen = block_invs
 
     # Parse bounds from chosen blocks.
-    bounds: dict[str, dict[str, int]] = {}
+    bounds: dict[str, dict] = {}
     for inv_set in chosen.values():
         inner = inv_set.strip().strip("{}").strip()
         for piece in inner.split(";"):
@@ -93,7 +95,6 @@ def _parse_clam_invariants(text: str, func_name: str) -> dict[str, dict[str, int
                 var, val = m.group(1), int(m.group(2))
                 if var not in bounds:
                     bounds[var] = {}
-                # Keep tightest upper bound.
                 if "upper" not in bounds[var] or val < bounds[var]["upper"]:
                     bounds[var]["upper"] = val
                 continue
@@ -104,7 +105,105 @@ def _parse_clam_invariants(text: str, func_name: str) -> dict[str, dict[str, int
                     bounds[var] = {}
                 if "lower" not in bounds[var] or val > bounds[var]["lower"]:
                     bounds[var]["lower"] = val
+                continue
+            # Relational: -PARAM+VAR <= C  →  VAR ≤ PARAM + C
+            m = _RELATIONAL_UB.match(piece)
+            if m:
+                param_clam, var, offset = m.group(1), m.group(2), int(m.group(3))
+                if var not in bounds:
+                    bounds[var] = {}
+                # Keep tightest (smallest) offset seen for this var.
+                if ("upper_expr" not in bounds[var]
+                        or offset < bounds[var].get("upper_offset", 0)):
+                    bounds[var]["upper_expr"]   = param_clam   # e.g. "arg1"
+                    bounds[var]["upper_offset"] = offset        # e.g. -1 or 0
     return bounds
+
+
+# ── Precondition injection ────────────────────────────────────────────────────
+
+def _inject_preconditions(c_text: str, func_name: str,
+                           preconditions: list[dict]) -> str:
+    """Insert __builtin_assume(param op value) at the top of the function body.
+
+    Clam's Crab-LLVM respects @llvm.assume (what __builtin_assume lowers to),
+    adding it as a hard constraint at the entry block.  This prunes infeasible
+    paths (e.g. maxlen < 0) so the octagon join at exit can prove relational
+    bounds like *out_key_len ≤ maxlen.
+    """
+    if not preconditions:
+        return c_text
+    m = re.search(
+        re.escape(func_name) + r'\s*\([^{]*\)\s*\{',
+        c_text, re.DOTALL
+    )
+    if not m:
+        return c_text
+    assumes = "".join(
+        f"\n    __builtin_assume({p['param']} {p['op']} {p['value']});"
+        for p in preconditions
+    )
+    pos = m.end()
+    return c_text[:pos] + assumes + c_text[pos:]
+
+
+# ── Clam name ↔ source name mapping ──────────────────────────────────────────
+
+def _find_scalar_params(ir_text: str, func_name: str) -> list[tuple[str, str]]:
+    """Return [(ir_type, ssa_name)] for non-pointer params of func_name."""
+    m = re.search(
+        r'define\b[^@]*@' + re.escape(func_name) + r'\(([^)]*)\)',
+        ir_text
+    )
+    if not m:
+        return []
+    result = []
+    for tok in m.group(1).split(","):
+        tok = tok.strip()
+        pm = re.match(r'(i\d+)\s+%(\w[\w\.]*)', tok)  # scalar: "i32 %maxlen"
+        if pm:
+            result.append((pm.group(1), pm.group(2)))
+    return result
+
+
+def _clam_param_names(clam_out: str, func_name: str) -> list[str]:
+    """Return ordered list of @V_N names from Clam's function declaration."""
+    m = re.search(
+        r'declare\s+' + re.escape(func_name) + r'\(([^)]*)\)',
+        clam_out
+    )
+    if not m:
+        return []
+    result = []
+    for tok in m.group(1).split(","):
+        tok = tok.strip()
+        pm = re.match(r'(@[\w\.]+)', tok)
+        if pm:
+            result.append(pm.group(1))
+    return result
+
+
+def _build_clam_name_map(clam_out: str, ir_text: str,
+                          func_name: str) -> dict[str, str]:
+    """Return {clam_name: source_param_name} for scalar parameters.
+
+    Clam renames scalar params to @V_N in its declaration and to arg1/arg2/...
+    in invariants.  We correlate them with the LLVM IR's SSA names (which keep
+    the original source names due to -fno-discard-value-names) by position.
+
+    Example for hash_payload(i8* key, i32 maxlen, i32* out_key_len):
+      IR scalar params in order: [(i32, maxlen)]
+      Clam declaration:  declare hash_payload(@V_6:int32)
+      Result: {@V_6: maxlen, arg1: maxlen}
+    """
+    ir_scalars   = _find_scalar_params(ir_text, func_name)
+    clam_scalars = _clam_param_names(clam_out, func_name)
+    mapping: dict[str, str] = {}
+    for i, (_, src_name) in enumerate(ir_scalars):
+        if i < len(clam_scalars):
+            mapping[clam_scalars[i]] = src_name   # @V_6 → maxlen
+        mapping[f"arg{i + 1}"] = src_name          # arg1  → maxlen
+    return mapping
 
 
 # ── LLVM IR helpers ───────────────────────────────────────────────────────────
@@ -231,11 +330,13 @@ def _c_pointer_params(c_text: str, func_name: str) -> dict[str, str]:
 
 @dataclass
 class SideEffect:
-    param: str            # C/IR name of the output pointer param
-    c_type: str           # C type of the param (e.g. "unsigned int *")
-    stored_var: str       # SSA name of value stored through it
-    upper: Optional[int]  # Clam upper bound (None = unbounded)
-    lower: Optional[int]  # Clam lower bound (None = unbounded / assume 0)
+    param: str                   # C/IR name of the output pointer param
+    c_type: str                  # C type of the param (e.g. "unsigned int *")
+    stored_var: str              # SSA name of value stored through it
+    upper: Optional[int]         # Clam constant upper bound (None = unbounded)
+    lower: Optional[int]         # Clam constant lower bound (None = unbounded)
+    upper_expr: Optional[str] = None  # Source param name for relational bound
+                                      # e.g. "maxlen" → klee_assume(se <= maxlen)
 
 
 def analyze(
@@ -243,6 +344,7 @@ def analyze(
     func_name: str,
     extra_cflags: list[str] = field(default_factory=list),
     tmpdir: Optional[Path] = None,
+    preconditions: Optional[list[dict]] = None,
 ) -> list[SideEffect]:
     """Run Stages 2a + 2b; return SideEffect list (may be empty)."""
     own_tmpdir = tmpdir is None
@@ -252,17 +354,33 @@ def analyze(
         tmpdir = Path(_td.name)
 
     try:
-        return _analyze(source, func_name, list(extra_cflags), tmpdir)
+        return _analyze(source, func_name, list(extra_cflags), tmpdir,
+                        preconditions or [])
     finally:
         if own_tmpdir:
             _td.cleanup()
 
 
 def _analyze(source: Path, func_name: str,
-             extra_cflags: list[str], tmpdir: Path) -> list[SideEffect]:
+             extra_cflags: list[str], tmpdir: Path,
+             preconditions: list[dict]) -> list[SideEffect]:
     c_text = source.read_text()
 
-    opt_bc = _compile_to_opt_bc(source, extra_cflags, tmpdir)
+    # Always include the source file's own directory so local #include "..." works.
+    src_inc = f"-I{source.parent}"
+    if src_inc not in extra_cflags:
+        extra_cflags = [src_inc] + extra_cflags
+
+    # If preconditions supplied, inject __builtin_assume and compile modified src.
+    if preconditions:
+        modified = _inject_preconditions(c_text, func_name, preconditions)
+        mod_src = tmpdir / f"{source.stem}_pre.c"
+        mod_src.write_text(modified)
+        compile_src = mod_src
+    else:
+        compile_src = source
+
+    opt_bc = _compile_to_opt_bc(compile_src, extra_cflags, tmpdir)
     if opt_bc is None:
         sys.stderr.write("[ir_analyzer] compilation failed; returning no side effects\n")
         return []
@@ -278,7 +396,8 @@ def _analyze(source: Path, func_name: str,
         return []   # no pointer params are written → no side effects
 
     # Clam bounds.
-    clam_bounds: dict[str, dict[str, int]] = {}
+    clam_bounds: dict[str, dict] = {}
+    clam_name_map: dict[str, str] = {}
     if CLAM.exists():
         r = subprocess.run(
             [str(CLAM), str(opt_bc),
@@ -286,7 +405,8 @@ def _analyze(source: Path, func_name: str,
             capture_output=True, text=True
         )
         clam_out = r.stdout + r.stderr
-        clam_bounds = _parse_clam_invariants(clam_out, func_name)
+        clam_bounds   = _parse_clam_invariants(clam_out, func_name)
+        clam_name_map = _build_clam_name_map(clam_out, ir_text, func_name)
     else:
         sys.stderr.write("[ir_analyzer] Clam not found; side-effect bounds will be unbounded\n")
 
@@ -298,12 +418,28 @@ def _analyze(source: Path, func_name: str,
             continue
         stored = stores[ir_name]
         b = clam_bounds.get(stored, {})
+
+        # Resolve relational upper bound: Clam name → source parameter name.
+        # Two cases:
+        #   1. Clam used its own alias (arg1, @V_6) → look up clam_name_map
+        #   2. Clam used the actual LLVM SSA name (e.g. "maxlen" due to
+        #      -fno-discard-value-names) → use directly as it already IS the source name
+        upper_expr: Optional[str] = None
+        if "upper_expr" in b:
+            clam_param = b["upper_expr"]
+            src_param  = clam_name_map.get(clam_param)
+            if src_param is None and clam_param.replace(".", "_").isidentifier():
+                src_param = clam_param   # SSA name == source name
+            if src_param:
+                upper_expr = src_param
+
         effects.append(SideEffect(
             param=ir_name,
             c_type=c_ptypes.get(ir_name, ir_type),
             stored_var=stored,
             upper=b.get("upper"),
             lower=b.get("lower"),
+            upper_expr=upper_expr,
         ))
 
     return effects

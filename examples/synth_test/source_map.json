@@ -1,0 +1,15 @@
+{
+  "classify_type": {
+    "source": "synth_expensive.c",
+    "defines": []
+  },
+  "hash_payload": {
+    "source": "synth_expensive.c",
+    "defines": ["NUM_BACKENDS=16", "KEY_MAXLEN=8"],
+    "preconditions": [{"param": "maxlen", "op": ">=", "value": 0}]
+  },
+  "fold_csum": {
+    "source": "synth_expensive.c",
+    "defines": []
+  }
+}

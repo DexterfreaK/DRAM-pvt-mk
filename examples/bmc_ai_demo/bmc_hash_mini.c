@@ -26,7 +26,7 @@
  */
 
 //  hash = ((((FNV_OFFSET ^ b0) * FNV_PRIME) ^ b1) * FNV_PRIME) ^ ... % 3250
-uint32_t hash_keys_mini(const char *payload, unsigned int len,
+uint32_t hash_keys_mini(const char *payload, signed int len,
                         unsigned int *out_key_len)
 {
     uint32_t hash    = FNV_OFFSET;
@@ -42,7 +42,9 @@ uint32_t hash_keys_mini(const char *payload, unsigned int len,
         }
         key_len++;                          /* both ' ' and other reach here */
     }
-   
+
+    // [-inf,key_len] -> relational abstraction
+    // key_len = -1 -> out_key_len = 0
     *out_key_len = key_len;
     return hash % TABLE_SIZE; // [0,3250]
 }

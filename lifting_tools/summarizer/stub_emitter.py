@@ -126,7 +126,11 @@ def _side_effect_block(fx: SideEffect) -> list[str]:
         f"    {elem_type} {var}_se;",
         f"    klee_make_symbolic(&{var}_se, sizeof {var}_se, \"{var}\");",
     ]
-    if fx.upper is not None:
+    if fx.upper_expr is not None:
+        # Relational bound derived from precondition-aware Clam analysis.
+        lo = fx.lower if fx.lower is not None else 0
+        lines.append(f"    klee_assume({var}_se >= {lo} && {var}_se <= {fx.upper_expr});")
+    elif fx.upper is not None:
         lo = fx.lower if fx.lower is not None else 0
         if lo != 0:
             lines.append(f"    klee_assume({var}_se >= {lo});")

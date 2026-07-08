@@ -83,7 +83,11 @@ class KleeResult:
 def _run_klee(bc: Path, timeout_s: int, outdir: Path,
               extra_flags: list[str] | None = None) -> KleeResult:
     """Run KLEE on a .bc file; return parsed KleeResult."""
-    outdir.mkdir(parents=True, exist_ok=True)
+    # Create the parent dir so KLEE can write the output dir itself.
+    # Do NOT pre-create outdir — KLEE refuses to use a pre-existing directory.
+    outdir.parent.mkdir(parents=True, exist_ok=True)
+    if outdir.exists():
+        import shutil; shutil.rmtree(outdir)
     cmd = [
         KLEE,
         f"--output-dir={outdir}",
@@ -139,12 +143,16 @@ def _run_klee(bc: Path, timeout_s: int, outdir: Path,
 # ── Stub compilation + linking ────────────────────────────────────────────────
 
 def _compile_stub(stub_c: Path, klee_inc: str, defines: list[str],
-                  out_bc: Path) -> bool:
+                  out_bc: Path, source_dir: Path | None = None) -> bool:
     """Compile a stub .c file to LLVM bitcode."""
+    # Include the original source's directory so that relative #include "..."
+    # headers (e.g. "synth_common.h") resolve correctly.
+    extra_inc = [f"-I{source_dir}"] if source_dir else []
     cmd = (
         [CLANG]
         + CFLAGS
         + [f"-I{klee_inc}"]
+        + extra_inc
         + [f"-D{d}" for d in defines]
         + [str(stub_c), "-o", str(out_bc)]
     )
@@ -183,6 +191,13 @@ def _is_improvement(baseline: KleeResult, stub: KleeResult,
             return True, ("stub finished (UNSAFE — possible false alarm from "
                           "over-approximation; validate with real implementation)")
         return True, f"timeout rescued: {baseline.completed_paths} paths → {stub.completed_paths} paths"
+
+    # If baseline completed SAFE and stub is UNSAFE: the stub introduced false
+    # positives — an over-approximate stub fires assertions the real function
+    # never would.  Reject outright even if path count dropped.
+    if baseline.verdict == "SAFE" and stub.verdict == "UNSAFE":
+        return False, ("stub is UNSAFE while baseline was SAFE — "
+                       "over-approximate stub introduced false positives")
 
     # If baseline completed: require strictly fewer paths.
     if stub.completed_paths >= baseline.completed_paths:
@@ -253,8 +268,9 @@ def run(
             continue
 
         entry = source_map[func_name]
-        source_rel = entry.get("source", "")
-        defines    = entry.get("defines", [])
+        source_rel    = entry.get("source", "")
+        defines       = entry.get("defines", [])
+        preconditions = entry.get("preconditions", [])
 
         # Resolve source path (relative to BC directory, or absolute).
         source_path = Path(source_rel)
@@ -277,6 +293,11 @@ def run(
         ]
         if defines:
             summarize_argv += ["--defines"] + defines
+        if preconditions:
+            # Convert [{"param":"maxlen","op":">=","value":1}] → ["maxlen>=1"]
+            summarize_argv += ["--preconditions"] + [
+                f"{p['param']}{p['op']}{p['value']}" for p in preconditions
+            ]
         if verbose:
             summarize_argv.append("--verbose")
         r = subprocess.run(summarize_argv, capture_output=not verbose, text=True)
@@ -289,7 +310,8 @@ def run(
         # Step 2b: compile stub.c → stub.bc.
         stub_bc = work_dir / f"{func_name}_stub.bc"
         print(f"       Compiling stub BC …")
-        if not _compile_stub(stub_c, klee_inc, defines, stub_bc):
+        if not _compile_stub(stub_c, klee_inc, defines, stub_bc,
+                             source_dir=source_path.parent):
             print("       FAIL — stub compilation failed")
             continue
 
